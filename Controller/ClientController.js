@@ -72,10 +72,7 @@ export const ClientLogin = async (req, res) => {
 
     const user = result.rows[0]
 
-    // Admin onayı kontrolü
-    if (!user.approved) {
-      return res.status(403).json({ message: "Kullanıcı henüz admin onayını almadı." })
-    }
+  
 
     
     const isMatch = await bcrypt.compare(password, user.password)
@@ -103,6 +100,40 @@ export const ClientLogin = async (req, res) => {
 
   } catch (error) {
     console.error("Login error:", error)
+    return res.status(500).json({ message: "Sunucu hatası" })
+  }
+}
+
+
+export const GetDataClient = async (req, res) => {
+  try {
+    const authHeader = req.header('Authorization')
+    if (!authHeader) return res.status(401).json({ message: "Token yok" })
+
+    const token = authHeader.split(' ')[1]
+    if (!token) return res.status(401).json({ message: "Token yok" })
+
+    const decoded = jwt.verify(token, JWT_SECRET)
+    const userId = decoded.id
+
+    const result = await db.query(
+      "SELECT kullanici_adi, gender FROM clients WHERE id=$1",
+      [userId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" })
+    }
+
+    const user = result.rows[0]
+
+    return res.status(200).json({
+      message: "Kullanıcı verileri başarıyla getirildi",
+      user
+    })
+
+  } catch (error) {
+    console.error("GetDataClient error:", error)
     return res.status(500).json({ message: "Sunucu hatası" })
   }
 }

@@ -1,7 +1,8 @@
 import express from 'express'
 import multer from 'multer'
-import { ClientLogin, ClientRegister } from '../Controller/ClientController.js'
+import { ClientLogin, ClientRegister, GetDataClient } from '../Controller/ClientController.js'
 import path from 'path';
+import verifyToken from '../Middlewares/AuthMiddlewares.js';
 
 const router = express.Router()
 
@@ -21,4 +22,5 @@ const upload = multer({ storage: storage })
 
 router.post('/register', upload.single('photo'), ClientRegister)
 router.post('/login',ClientLogin)
+router.get('/clientpanel',verifyToken,GetDataClient)
 export default router
