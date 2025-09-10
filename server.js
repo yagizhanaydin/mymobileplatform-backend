@@ -9,7 +9,7 @@ const app = express()
 const PORT = process.env.PORT || 3000
 
 const corsOptions = {
-    origin: '*', // Geliştirme için tüm originlere izin veriyoruz, sonra sınırlayabilirsin
+    origin: '*', 
     methods: 'GET,POST',
     allowedHeaders: ['Content-Type', 'Authorization']
 }

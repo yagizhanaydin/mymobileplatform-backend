@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { ClientRegister } from '../Controller/ClientController.js'
+import { ClientLogin, ClientRegister } from '../Controller/ClientController.js'
 import path from 'path';
 
 const router = express.Router()
@@ -20,5 +20,5 @@ const upload = multer({ storage: storage })
 
 
 router.post('/register', upload.single('photo'), ClientRegister)
-
+router.post('/login',ClientLogin)
 export default router
