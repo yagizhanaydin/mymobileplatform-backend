@@ -1,15 +1,26 @@
 import express from 'express'
 import dotenv from 'dotenv'
 import cors from 'cors'
+import clientRoutes from './Routes/ClientRoutes.js'
 
-dotenv.config();
+dotenv.config()
 
-const app=express();
+const app = express()
+const PORT = process.env.PORT || 3000
 
-const PORT=process.env.PORT
+const corsOptions = {
+    origin: '*', // Geliştirme için tüm originlere izin veriyoruz, sonra sınırlayabilirsin
+    methods: 'GET,POST',
+    allowedHeaders: ['Content-Type', 'Authorization']
+}
 
+app.use(cors(corsOptions))
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true }))
+app.use('/uploads', express.static('uploads'))
 
+app.use('/api/clients', clientRoutes)
 
-app.listen(PORT,()=>{
-console.log("server başarılıyla başlatıldı")
+app.listen(PORT, () => {
+    console.log(`Server ${PORT} portunda başarılı bir şekilde başlatıldı.`)
 })

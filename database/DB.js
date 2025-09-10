@@ -1,4 +1,6 @@
-const { Client } = require('pg');
+
+import pkg from 'pg';
+const { Client } = pkg;
 
 const client = new Client({
   user: 'postgres',
@@ -8,14 +10,6 @@ const client = new Client({
   database: 'mywomanproject',
 });
 
-(async () => {
-  try {
-    await client.connect();
-    const res = await client.query('SELECT NOW()');
-    console.log(res.rows);
-  } catch (err) {
-    console.error('Veritabanı bağlantı hatası:', err);
-  } finally {
-    await client.end();
-  }
-})();
+await client.connect();
+
+export default client;
