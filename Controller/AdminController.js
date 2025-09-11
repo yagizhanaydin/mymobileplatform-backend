@@ -91,9 +91,12 @@ export const GetAllClients = async (req, res) => {
       gender: user.gender,
       role: user.role,
       photoUrl: user.photo_base64 
-        ? `http://localhost:3000/uploads/${user.photo_base64}` 
+        ? `http://10.26.164.245:3000/uploads/${user.photo_base64}`
         : null
     }));
+
+    // İşte log kral
+    console.log("Frontend'e gidecek users:", users);
 
     return res.status(200).json({
       message: "Tüm kullanıcılar getirildi",
