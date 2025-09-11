@@ -49,60 +49,81 @@ export const ClientRegister = async (req, res) => {
 }
 
 
-
-
-
 export const ClientLogin = async (req, res) => {
   try {
-    const { client_name, password } = req.body
+    const { client_name, password } = req.body;
 
     if (!client_name || !password) {
-      return res.status(400).json({ message: "Hiçbir alan boş olamaz" })
+      return res.status(400).json({ message: "Hiçbir alan boş olamaz" });
     }
 
-   
-    const result = await db.query(
+    // Önce client tablosunda ara
+    let result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi=$1",
       [client_name]
-    )
+    );
+
+    let role = "client";
+
+    // Eğer client yoksa admin tablosunda ara
+    if (result.rows.length === 0) {
+      result = await db.query(
+        "SELECT * FROM admins WHERE client_name=$1",
+        [client_name]
+      );
+      role = "admin";
+    }
 
     if (result.rows.length === 0) {
-      return res.status(400).json({ message: "Böyle bir kullanıcı bulunamadı" })
+      return res.status(400).json({ message: "Böyle bir kullanıcı bulunamadı" });
     }
 
-    const user = result.rows[0]
+    const user = result.rows[0];
 
-  
+    // Şifre kontrolü: önce bcrypt, sonra düz metin
+    let isMatch = false;
+    try {
+      isMatch = await bcrypt.compare(password, user.password);
+    } catch (e) {
+      console.warn("bcrypt ile kontrol edilemedi, düz metin denenecek");
+    }
 
-    
-    const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
-      return res.status(400).json({ message: "Şifre yanlış" })
+      isMatch = password === user.password;
     }
 
-  
-    const token = jwt.sign(
-      { id: user.id, client_name: user.kullanici_adi },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
+    if (!isMatch) {
+      return res.status(400).json({ message: "Şifre yanlış" });
+    }
 
+    // Token oluştur
+    const token = jwt.sign(
+      {
+        id: user.id,
+        client_name: role === "client" ? user.kullanici_adi : user.client_name,
+        role
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Response
     return res.status(200).json({
       message: "Giriş başarılı",
       token,
       user: {
         id: user.id,
-        client_name: user.kullanici_adi,
-        gender: user.gender,
-        photo_base64: user.photo_base64
+        client_name: role === "client" ? user.kullanici_adi : user.client_name,
+        gender: user.gender || null,
+        photo_base64: user.photo_base64 || null,
+        role
       }
-    })
-
+    });
   } catch (error) {
-    console.error("Login error:", error)
-    return res.status(500).json({ message: "Sunucu hatası" })
+    console.error("ClientLogin error:", error);
+    return res.status(500).json({ message: "Sunucu hatası" });
   }
-}
+};
 
 
 export const GetDataClient = async (req, res) => {
