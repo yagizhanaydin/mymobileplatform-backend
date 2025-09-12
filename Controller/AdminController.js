@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 
 import fs from "fs"
 import path from "path"
-
+import axios from "axios";
 
 dotenv.config()
 const JWT_SECRET = process.env.JWT_SECRET
@@ -82,7 +82,7 @@ export const GetAllClients = async (req, res) => {
     }
 
     const result = await db.query(
-      "SELECT id, kullanici_adi, gender, role, photo_base64 FROM clients ORDER BY id ASC"
+      "SELECT id, kullanici_adi, gender, role, photo_base64 FROM clients WHERE approved=false ORDER BY id ASC"
     );
 
     const users = result.rows.map(user => ({
@@ -106,5 +106,55 @@ export const GetAllClients = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Sunucu hatası" });
+  }
+};
+
+
+export const DeleteClient = async (req, res) => {
+  try {
+    // Yalnızca admin yetkisi kontrolü
+    if (req.role !== "admin") {
+      return res.status(403).json({ message: "Yetkisiz erişim" });
+    }
+
+    const clientId = req.params.id;
+
+    // Kullanıcıyı DB'den sil
+    const result = await db.query("DELETE FROM clients WHERE id=$1 RETURNING *", [clientId]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+
+    console.log(`✅ Kullanıcı ${clientId} silindi`);
+
+    res.status(200).json({ message: "Kullanıcı silindi", deletedClient: result.rows[0] });
+  } catch (error) {
+    console.error("❌ DeleteClient Hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
+  }
+};
+
+
+export const ApproveClient = async (req, res) => {
+  try {
+    if (req.role !== "admin") {
+      return res.status(403).json({ message: "Yetkisiz erişim" });
+    }
+
+    const clientId = req.params.id;
+
+    
+    await db.query(
+      "UPDATE clients SET approved=true WHERE id=$1",
+      [clientId]
+    );
+
+    console.log(`✅ Kullanıcı ${clientId} onaylandı`);
+
+    res.status(200).json({ message: "Kullanıcı onaylandı" });
+  } catch (error) {
+    console.error("❌ ApproveClient Hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
   }
 };
