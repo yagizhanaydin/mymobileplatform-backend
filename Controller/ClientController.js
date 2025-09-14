@@ -211,7 +211,7 @@ export const IlanKayit = async (req, res) => {
 
 export const IlanShow = async (req, res) => {
   try {
-    const { city, issue } = req.query;
+    const { city, issue, id } = req.query; // id ekledik
 
     let query = `
       SELECT i.id, i.city, i.issue, i.created_at, c.kullanici_adi, c.gender
@@ -221,6 +221,11 @@ export const IlanShow = async (req, res) => {
 
     const params = [];
     const conditions = [];
+
+    if (id) { // id filtreleme
+      params.push(id);
+      conditions.push(`i.id = $${params.length}`);
+    }
 
     if (city) {
       params.push(city);
@@ -246,3 +251,72 @@ export const IlanShow = async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 };
+
+
+export const AddYorum = async (req, res) => {
+  try {
+    const { ilanId } = req.params;
+    const { comment } = req.body;
+    const clientId = req.userId;
+
+    console.log("AddYorum çağrıldı:", { ilanId, comment, clientId });
+
+    if (!comment) {
+      console.log("Yorum boş geldi!");
+      return res.status(400).json({ success: false, message: "Yorum boş olamaz!" });
+    }
+
+    // Yorum ekle
+    const result = await db.query(
+      `INSERT INTO yorumlar (ilan_id, client_id, comment)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [ilanId, clientId, comment]
+    );
+
+    console.log("Yorum eklendi:", result.rows[0]);
+
+    // Kullanıcı bilgilerini almak için JOIN
+    const yorumId = result.rows[0].id;
+    const yorumFull = await db.query(
+      `SELECT y.id, y.ilan_id, y.client_id, c.kullanici_adi, c.gender, y.comment, y.created_at
+       FROM yorumlar y
+       JOIN clients c ON y.client_id = c.id
+       WHERE y.id=$1`,
+      [yorumId]
+    );
+
+    console.log("Yorum detayları:", yorumFull.rows[0]);
+
+    res.status(201).json({ success: true, data: yorumFull.rows[0] });
+
+  } catch (error) {
+    console.error("AddYorum error:", error);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+}
+
+
+export const GetYorumlar = async (req, res) => {
+  try {
+    const { ilanId } = req.params;
+    console.log("GetYorumlar çağrıldı:", { ilanId });
+
+    const result = await db.query(
+      `SELECT y.id, y.ilan_id, y.client_id, c.kullanici_adi, c.gender, y.comment, y.created_at
+       FROM yorumlar y
+       JOIN clients c ON y.client_id = c.id
+       WHERE y.ilan_id=$1
+       ORDER BY y.created_at DESC`,
+      [ilanId]
+    );
+
+    console.log("GetYorumlar sonucu:", result.rows);
+
+    res.status(200).json({ success: true, data: result.rows });
+
+  } catch (error) {
+    console.error("GetYorumlar error:", error);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+}
