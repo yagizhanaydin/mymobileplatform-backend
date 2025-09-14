@@ -57,7 +57,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(400).json({ message: "Hiçbir alan boş olamaz" });
     }
 
-    // Önce client tablosunda ara
+  
     let result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi=$1",
       [client_name]
@@ -65,7 +65,7 @@ export const ClientLogin = async (req, res) => {
 
     let role = "client";
 
-    // Eğer client yoksa admin tablosunda ara
+    
     if (result.rows.length === 0) {
       result = await db.query(
         "SELECT * FROM admins WHERE client_name=$1",
@@ -80,7 +80,7 @@ export const ClientLogin = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Şifre kontrolü: önce bcrypt, sonra düz metin
+  
     let isMatch = false;
     try {
       isMatch = await bcrypt.compare(password, user.password);
@@ -96,7 +96,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(400).json({ message: "Şifre yanlış" });
     }
 
-    // Token oluştur
+  
     const token = jwt.sign(
       {
         id: user.id,
@@ -107,7 +107,7 @@ export const ClientLogin = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Response
+
     return res.status(200).json({
       message: "Giriş başarılı",
       token,
@@ -158,3 +158,52 @@ export const GetDataClient = async (req, res) => {
     return res.status(500).json({ message: "Sunucu hatası" })
   }
 }
+
+
+
+export const IlanKayit = async (req, res) => {
+    try {
+        const { city, issue } = req.body;
+
+        // Token’dan client id'yi alıyoruz
+        const clientId = req.userId;
+
+        if (!city || !issue) {
+            return res.status(400).json({ success: false, message: "İl ve sorun alanı boş olamaz!" });
+        }
+
+       
+        const iller = [
+            "Adana","Adıyaman","Afyon","Ağrı","Amasya","Ankara","Antalya","Artvin","Aydın",
+            "Balıkesir","Bilecik","Bingöl","Bitlis","Bolu","Burdur","Bursa","Çanakkale",
+            "Çankırı","Çorum","Denizli","Diyarbakır","Edirne","Elazığ","Erzincan","Erzurum",
+            "Eskişehir","Gaziantep","Giresun","Gümüşhane","Hakkari","Hatay","Isparta","Mersin",
+            "İstanbul","İzmir","Kars","Kastamonu","Kayseri","Kırklareli","Kırşehir","Kocaeli",
+            "Konya","Kütahya","Malatya","Manisa","Kahramanmaraş","Mardin","Muğla","Muş",
+            "Nevşehir","Niğde","Ordu","Rize","Sakarya","Samsun","Siirt","Sinop","Sivas",
+            "Tekirdağ","Tokat","Trabzon","Tunceli","Şanlıurfa","Uşak","Van","Yozgat",
+            "Zonguldak","Aksaray","Bayburt","Karaman","Kırıkkale","Batman","Şırnak","Bartın",
+            "Ardahan","Iğdır","Yalova","Karabük","Kilis","Osmaniye","Düzce"
+        ];
+
+        if (!iller.includes(city)) {
+            return res.status(400).json({ success: false, message: "Geçerli bir il giriniz!" });
+        }
+
+        // İlanı eklerken client_id ile ilişkilendiriyoruz
+        const result = await db.query(
+            "INSERT INTO ilanlar (client_id, city, issue) VALUES ($1, $2, $3) RETURNING *",
+            [clientId, city, issue]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "İlan başarıyla kaydedildi!",
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: "Sunucu hatası!" });
+    }
+};
