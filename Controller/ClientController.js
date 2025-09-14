@@ -207,3 +207,43 @@ export const IlanKayit = async (req, res) => {
         return res.status(500).json({ success: false, message: "Sunucu hatası!" });
     }
 };
+
+
+export const IlanShow = async (req, res) => {
+  try {
+ const { city, issue } = req.query;
+
+    // SELECT ile ilanları ve kullanıcı adlarını alıyoruz
+    let query = `
+      SELECT i.id, i.city, i.issue, i.created_at, c.kullanici_adi
+      FROM ilanlar i
+      JOIN clients c ON i.client_id = c.id
+    `;
+
+    const params = [];
+    const conditions = [];
+
+    if (city) {
+      params.push(city);
+      conditions.push(`i.city = $${params.length}`);
+    }
+
+    if (issue) {
+      params.push(`%${issue}%`);
+      conditions.push(`i.issue ILIKE $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    query += " ORDER BY i.created_at DESC";
+
+    const result = await db.query(query, params);
+
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+};

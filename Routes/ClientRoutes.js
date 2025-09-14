@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { ClientLogin, ClientRegister, GetDataClient, IlanKayit } from '../Controller/ClientController.js'
+import { ClientLogin, ClientRegister, GetDataClient, IlanKayit, IlanShow } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 
@@ -24,4 +24,6 @@ router.post('/register', upload.single('photo'), ClientRegister)
 router.post('/login',ClientLogin)
 router.get('/clientpanel',verifyToken,GetDataClient)
 router.post('/ilanekle',verifyToken,IlanKayit)
+router.get('/ilanlar', verifyToken, IlanShow)
+
 export default router
