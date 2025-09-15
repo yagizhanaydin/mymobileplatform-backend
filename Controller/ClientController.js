@@ -376,3 +376,38 @@ export const deleteIlan = async (req, res) => {
         res.status(500).json({ success: false, message: "Sunucu hatası" });
     }
 };
+
+
+
+
+export const PostLocation = async (req, res) => {
+  const { latitude, longitude, timestamp } = req.body;
+
+  console.log('--- ACIL KONUM REQUEST GELDI ---');
+  console.log('ClientID:', req.userId);
+  console.log('Latitude:', latitude);
+  console.log('Longitude:', longitude);
+  console.log('Timestamp:', timestamp);
+
+  if (latitude === undefined || longitude === undefined) {
+    console.warn('Eksik veri var!');
+    return res.status(400).json({ success: false, message: 'Eksik veri var' });
+  }
+
+  try {
+    console.log('DB INSERT Sorgusu hazırlanıyor...');
+    const queryText = 'INSERT INTO locations2 (client_id, latitude, longitude, created_at) VALUES ($1, $2, $3, $4)';
+    const values = [req.userId, latitude, longitude, timestamp || new Date()];
+
+    console.log('Query:', queryText);
+    console.log('Values:', values);
+
+    await db.query(queryText, values);
+
+    console.log('Konum veritabanına kaydedildi!');
+    res.status(200).json({ success: true, message: 'Konum kaydedildi' });
+  } catch (err) {
+    console.error('Veritabanı hatası:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
