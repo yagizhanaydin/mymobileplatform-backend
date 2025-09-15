@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { AddYorum, ClientLogin, ClientRegister, GetDataClient, GetYorumlar, IlanKayit, IlanShow } from '../Controller/ClientController.js'
+import { AddYorum, ClientLogin, ClientRegister, deleteIlan, GetDataClient, GetYorumlar, IlanKayit, IlanShow, MyIlanlar } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 
@@ -27,4 +27,7 @@ router.post('/ilanekle',verifyToken,IlanKayit)
 router.get('/ilanlar', verifyToken, IlanShow)
 router.post('/ilanlar/:ilanId/yorumlar', verifyToken, AddYorum)
 router.get('/ilanlar/:ilanId/yorumlar',verifyToken ,GetYorumlar)
+router.get('/myshow',verifyToken,MyIlanlar)
+router.delete('/ilan/:id', verifyToken, deleteIlan);
+
 export default router

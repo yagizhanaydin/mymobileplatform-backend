@@ -320,3 +320,59 @@ export const GetYorumlar = async (req, res) => {
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 }
+
+
+export const MyIlanlar = async (req, res) => {
+  try {
+    const clientId = req.userId; 
+    console.log("MyIlanlar çağrıldı, clientId:", clientId);
+
+    
+    const result = await db.query(
+      `SELECT i.id, i.city, i.issue, i.created_at, c.kullanici_adi, c.gender
+       FROM ilanlar i
+       JOIN clients c ON i.client_id = c.id
+       WHERE i.client_id = $1
+       ORDER BY i.created_at DESC`,
+      [clientId]
+    );
+
+    console.log("Sorgu sonucu:", result.rows);
+
+    res.status(200).json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("MyIlanlar error:", error);
+    res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+};
+
+
+export const deleteIlan = async (req, res) => {
+    try {
+        const ilanId = parseInt(req.params.id);
+        const clientId = req.userId; 
+
+        console.log("DELETE İstek geldi:", { ilanId, clientId });
+
+        const checkResult = await db.query(
+            "SELECT * FROM ilanlar WHERE id=$1 AND client_id=$2",
+            [ilanId, clientId]
+        );
+
+        console.log("CheckResult:", checkResult.rows);
+
+        if (checkResult.rows.length === 0) {
+            console.log("Silme yetkisi yok");
+            return res.status(403).json({ success: false, message: "Bu ilana silme yetkiniz yok" });
+        }
+
+        await db.query("DELETE FROM ilanlar WHERE id=$1", [ilanId]);
+        console.log("İlan başarıyla silindi:", ilanId);
+
+        res.status(200).json({ success: true, message: "İlan başarıyla silindi" });
+
+    } catch (error) {
+        console.error("deleteIlan error:", error);
+        res.status(500).json({ success: false, message: "Sunucu hatası" });
+    }
+};

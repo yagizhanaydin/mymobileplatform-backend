@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Uploads klasörünü statik yap
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const corsOptions = {
