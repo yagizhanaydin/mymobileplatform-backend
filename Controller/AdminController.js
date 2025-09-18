@@ -91,7 +91,7 @@ export const GetAllClients = async (req, res) => {
       gender: user.gender,
       role: user.role,
       photoUrl: user.photo_base64 
-        ? `http://10.146.140.245:3000/uploads/${user.photo_base64}`
+        ? `http://172.20.42.245:3000/uploads/${user.photo_base64}`
         : null
     }));
 

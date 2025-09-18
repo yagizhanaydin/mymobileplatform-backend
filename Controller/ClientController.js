@@ -411,3 +411,40 @@ export const PostLocation = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+
+
+
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const authHeader = req.header("Authorization");
+    if (!authHeader) {
+      return res.status(401).json({ success: false, message: "Token yok" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Token yok" });
+    }
+
+    // Token doğrulama
+    jwt.verify(token, JWT_SECRET);
+
+    // Sadece kullanici_adi alanını çekiyoruz
+    const result = await db.query(
+      `SELECT id, kullanici_adi 
+       FROM clients 
+       ORDER BY kullanici_adi ASC`
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error("getAllUsers error:", error);
+    return res.status(500).json({ success: false, message: "Sunucu hatası" });
+  }
+};
