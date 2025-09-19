@@ -428,10 +428,10 @@ export const getAllUsers = async (req, res) => {
       return res.status(401).json({ success: false, message: "Token yok" });
     }
 
-    // Token doğrulama
+
     jwt.verify(token, JWT_SECRET);
 
-    // Sadece kullanici_adi alanını çekiyoruz
+   
     const result = await db.query(
       `SELECT id, kullanici_adi 
        FROM clients 
@@ -447,4 +447,129 @@ export const getAllUsers = async (req, res) => {
     console.error("getAllUsers error:", error);
     return res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
+};
+
+
+
+
+export const AddFriends = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        if (!authHeader) return res.status(401).json({ message: "Token yok" });
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        const sender_id = decoded.id; 
+        const { friendId: receiver_id } = req.body;
+
+        if (sender_id === receiver_id) {
+            return res.status(400).json({ message: "Kendi kendine arkadaşlık isteği atamazsın." });
+        }
+
+        const checkQuery = `SELECT * FROM friends WHERE sender_id = $1 AND receiver_id = $2`;
+        const existing = await db.query(checkQuery, [sender_id, receiver_id]);
+
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ message: "Zaten bu kişiye arkadaşlık isteği göndermişsin." });
+        }
+
+        const insertQuery = `INSERT INTO friends (sender_id, receiver_id) VALUES ($1, $2) RETURNING *`;
+        const result = await db.query(insertQuery, [sender_id, receiver_id]);
+
+        return res.status(200).json({ message: "Arkadaşlık isteği gönderildi.", data: result.rows[0] });
+
+    } catch (error) {
+        console.error("AddFriends error:", error);
+        return res.status(500).json({ message: "Sunucu hatası", error: error.message });
+    }
+};
+
+
+export const ShowFriendRequest = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        console.log("ShowFriendRequest tetiklendi, Auth Header:", authHeader); // LOG
+
+        if (!authHeader) return res.status(401).json({ message: "Token yok" });
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = decoded.id;
+
+        console.log("Decoded userId:", userId); // LOG
+
+        const query = `
+            SELECT f.id AS request_id, f.sender_id, c.kullanici_adi AS sender_name, f.status, f.created_at
+            FROM friends f
+            JOIN clients c ON f.sender_id = c.id
+            WHERE f.receiver_id = $1 AND f.status = 'pending'
+            ORDER BY f.created_at DESC
+        `;
+
+        const result = await db.query(query, [userId]);
+
+        console.log("Query result rows:", result.rows); // LOG
+
+        return res.status(200).json({
+            success: true,
+            data: result.rows
+        });
+
+    } catch (error) {
+        console.error("ShowFriendRequest error:", error);
+        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+    }
+};
+
+
+export const ResponseFriendRequest = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        console.log("🔹 ResponseFriendRequest tetiklendi, Auth Header:", authHeader);
+
+        if (!authHeader) return res.status(401).json({ success: false, message: "Token yok" });
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = decoded.id;
+        console.log("🔹 Decoded userId:", userId);
+
+        const { requestId, action } = req.body;
+        console.log("🔹 Gelen body:", req.body);
+
+        if (!requestId || !action) {
+            return res.status(400).json({ success: false, message: "Eksik veri" });
+        }
+
+        const status = action === "accepted" ? "accepted" : "rejected";
+
+        const updateQuery = `
+            UPDATE friends
+            SET status = $1
+            WHERE id = $2 AND receiver_id = $3
+            RETURNING *
+        `;
+        console.log("🔹 UPDATE sorgusu hazırlanıyor:", updateQuery);
+        console.log("🔹 Parametreler:", [status, requestId, userId]);
+
+        const result = await db.query(updateQuery, [status, requestId, userId]);
+        console.log("🔹 Update sonucu rowCount:", result.rowCount);
+        console.log("🔹 Update sonucu rows:", result.rows);
+
+        if (result.rowCount === 0) {
+            console.log("⚠️ Eşleşen istek bulunamadı! requestId ve receiver_id eşleşmesini kontrol et.");
+            return res.status(404).json({ success: false, message: "İstek bulunamadı" });
+        }
+
+        console.log(`✅ İstek ${status} edildi. requestId: ${requestId}, userId: ${userId}`);
+        return res.status(200).json({
+            success: true,
+            message: `İstek ${status === "accepted" ? "kabul edildi" : "reddedildi"}`
+        });
+
+    } catch (error) {
+        console.error("❌ ResponseFriendRequest error:", error);
+        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+    }
 };

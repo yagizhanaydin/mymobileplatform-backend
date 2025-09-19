@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { AddYorum, ClientLogin, ClientRegister, deleteIlan, getAllUsers, GetDataClient, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation,  } from '../Controller/ClientController.js'
+import { AddFriends, AddYorum, ClientLogin, ClientRegister, deleteIlan, getAllUsers, GetDataClient, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowFriendRequest,  } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 
@@ -31,4 +31,7 @@ router.get('/myshow',verifyToken,MyIlanlar)
 router.delete('/ilan/:id', verifyToken, deleteIlan);
 router.post('/client/emergency-location', verifyToken, PostLocation);
 router.get('/client/getallusers',verifyToken,getAllUsers)
+router.post('/add-friend',verifyToken, AddFriends);
+router.get('/show-friendrequest', verifyToken, ShowFriendRequest);
+router.post('/respond-friendrequest',verifyToken,ResponseFriendRequest)
 export default router
