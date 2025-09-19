@@ -558,18 +558,138 @@ export const ResponseFriendRequest = async (req, res) => {
         console.log("🔹 Update sonucu rows:", result.rows);
 
         if (result.rowCount === 0) {
-            console.log("⚠️ Eşleşen istek bulunamadı! requestId ve receiver_id eşleşmesini kontrol et.");
+            console.log(" Eşleşen istek bulunamadı! requestId ve receiver_id eşleşmesini kontrol et.");
             return res.status(404).json({ success: false, message: "İstek bulunamadı" });
         }
 
-        console.log(`✅ İstek ${status} edildi. requestId: ${requestId}, userId: ${userId}`);
+        console.log(` İstek ${status} edildi. requestId: ${requestId}, userId: ${userId}`);
         return res.status(200).json({
             success: true,
             message: `İstek ${status === "accepted" ? "kabul edildi" : "reddedildi"}`
         });
 
     } catch (error) {
-        console.error("❌ ResponseFriendRequest error:", error);
+        console.error(" ResponseFriendRequest error:", error);
+        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+    }
+};
+
+
+export const GetFriendsSayi = async (req, res) => {
+    try {
+        // --- Token kontrolü ---
+        const authHeader = req.header("Authorization");
+        if (!authHeader) {
+            return res.status(401).json({
+                success: false,
+                message: "Token yok"
+            });
+        }
+
+      
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = decoded.id;
+
+        // --- Sorgu: sadece 'accepted' olanları say ---
+        const query = `
+            SELECT COUNT(*) AS count
+            FROM friends
+            WHERE status = 'accepted'
+              AND (sender_id = $1 OR receiver_id = $1)
+        `;
+
+        const result = await db.query(query, [userId]);
+
+        return res.status(200).json({
+            success: true,
+            count: parseInt(result.rows[0].count, 10)
+        });
+
+    } catch (error) {
+        console.error("GetFriendsSayi error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Sunucu hatası",
+            error: error.message
+        });
+    }
+};
+
+
+
+export const DeleteClient = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        if (!authHeader) return res.status(401).json({ success: false, message: "Token yok" });
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = decoded.id;
+
+        const { friendId } = req.params; 
+        if (!friendId) {
+            return res.status(400).json({ success: false, message: "Eksik friendId" });
+        }
+
+        const deleteQuery = `
+            DELETE FROM friends
+            WHERE (sender_id = $1 AND receiver_id = $2)
+               OR (sender_id = $2 AND receiver_id = $1)
+        `;
+
+        const result = await db.query(deleteQuery, [userId, friendId]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, message: "Arkadaş bulunamadı" });
+        }
+
+        return res.status(200).json({ success: true, message: "Arkadaş silindi" });
+
+    } catch (error) {
+        console.error("DeleteClient error:", error);
+        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+    }
+};
+
+
+
+
+export const GetFriendsList = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        if (!authHeader) return res.status(401).json({ success: false, message: "Token yok" });
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = decoded.id;
+
+        const query = `
+            SELECT 
+                f.id,
+                CASE 
+                    WHEN f.sender_id = $1 THEN f.receiver_id
+                    ELSE f.sender_id
+                END AS friendId,
+                CASE 
+                    WHEN f.sender_id = $1 THEN c2.kullanici_adi
+                    ELSE c1.kullanici_adi
+                END AS friendName,
+                f.status
+            FROM friends f
+            JOIN clients c1 ON f.sender_id = c1.id
+            JOIN clients c2 ON f.receiver_id = c2.id
+            WHERE f.status = 'accepted' AND (f.sender_id = $1 OR f.receiver_id = $1)
+        `;
+
+        const result = await db.query(query, [userId]);
+
+        console.log("GetFriendsList result:", result.rows); // <-- burası loglama
+
+        return res.status(200).json({ success: true, data: result.rows });
+
+    } catch (error) {
+        console.error("GetFriendsList error:", error);
         return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
     }
 };
