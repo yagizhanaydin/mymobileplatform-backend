@@ -693,3 +693,48 @@ export const GetFriendsList = async (req, res) => {
         return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
     }
 };
+
+
+
+
+export const ShowDangerLocations = async (req, res) => {
+  try {
+    const authHeader = req.header("Authorization");
+    if (!authHeader) {
+      return res.status(401).json({ success: false, message: "Token yok" });
+    }
+
+    const token = authHeader.split(" ")[1]; // Bearer TOKEN
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+
+    const query = `
+      SELECT 
+        c.id AS friendId,
+        c.kullanici_adi AS friendName,
+        l.latitude,
+        l.longitude,
+        l.created_at
+      FROM friends f
+      JOIN clients c 
+        ON (c.id = f.sender_id OR c.id = f.receiver_id)
+      JOIN locations2 l 
+        ON l.client_id = c.id
+      WHERE f.status = 'accepted'
+        AND c.id != $1             -- kendini hariç tut
+        AND ($1 = f.sender_id OR $1 = f.receiver_id)  -- sadece arkadaş ilişkilerini al
+      ORDER BY l.created_at DESC;
+    `;
+
+    const result = await db.query(query, [userId]);
+
+    return res.status(200).json({
+      success: true,
+      locations: result.rows,
+    });
+
+  } catch (error) {
+    console.error("ShowDangerLocations error:", error);
+    return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+  }
+};
