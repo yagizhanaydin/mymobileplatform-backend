@@ -395,8 +395,18 @@ export const PostLocation = async (req, res) => {
   }
 
   try {
-    console.log('DB INSERT Sorgusu hazırlanıyor...');
-    const queryText = 'INSERT INTO locations2 (client_id, latitude, longitude, created_at) VALUES ($1, $2, $3, $4)';
+    console.log('DB UPSERT Sorgusu hazırlanıyor...');
+
+    const queryText = `
+      INSERT INTO locations2 (client_id, latitude, longitude, created_at)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (client_id)
+      DO UPDATE SET 
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        created_at = EXCLUDED.created_at
+    `;
+
     const values = [req.userId, latitude, longitude, timestamp || new Date()];
 
     console.log('Query:', queryText);
@@ -404,8 +414,8 @@ export const PostLocation = async (req, res) => {
 
     await db.query(queryText, values);
 
-    console.log('Konum veritabanına kaydedildi!');
-    res.status(200).json({ success: true, message: 'Konum kaydedildi' });
+    console.log('Konum veritabanına kaydedildi veya güncellendi!');
+    res.status(200).json({ success: true, message: 'Konum kaydedildi veya güncellendi' });
   } catch (err) {
     console.error('Veritabanı hatası:', err);
     res.status(500).json({ success: false, message: err.message });
@@ -577,7 +587,7 @@ export const ResponseFriendRequest = async (req, res) => {
 
 export const GetFriendsSayi = async (req, res) => {
     try {
-        // --- Token kontrolü ---
+       
         const authHeader = req.header("Authorization");
         if (!authHeader) {
             return res.status(401).json({
