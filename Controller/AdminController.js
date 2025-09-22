@@ -91,7 +91,7 @@ export const GetAllClients = async (req, res) => {
       gender: user.gender,
       role: user.role,
       photoUrl: user.photo_base64 
-        ? `http://172.20.42.245:3000/uploads/${user.photo_base64}`
+        ? `http://10.246.110.245:3000/uploads/${user.photo_base64}`
         : null
     }));
 
@@ -155,6 +155,57 @@ export const ApproveClient = async (req, res) => {
     res.status(200).json({ message: "Kullanıcı onaylandı" });
   } catch (error) {
     console.error(" ApproveClient Hatası:", error);
+    res.status(500).json({ message: "Sunucu hatası" });
+  }
+};
+
+
+
+
+
+
+
+export const DeleteClientAndBanDevice = async (req, res) => {
+  try {
+    console.log("DeleteClientAndBanDevice çağrıldı, req.params:", req.params);
+    console.log("Kullanıcı rolü:", req.role);
+
+    if (req.role !== "admin") {
+      console.log("Yetkisiz erişim tespit edildi");
+      return res.status(403).json({ message: "Yetkisiz erişim" });
+    }
+
+    const clientId = req.params.id;
+    console.log("Silinecek clientId:", clientId);
+
+    // Kullanıcının device_id'sini al
+    const clientResult = await db.query("SELECT device_id FROM clients WHERE id=$1", [clientId]);
+    if (clientResult.rowCount === 0) {
+      console.log("Kullanıcı bulunamadı:", clientId);
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+
+    const deviceId = clientResult.rows[0].device_id;
+    console.log("Kullanıcının device_id'si:", deviceId);
+
+    // Kullanıcıyı sil
+    const deleteResult = await db.query("DELETE FROM clients WHERE id=$1 RETURNING *", [clientId]);
+    console.log("Silinen kullanıcı:", deleteResult.rows[0]);
+
+    // Cihazı banla
+    if (deviceId) {
+      await db.query(
+        "INSERT INTO banned_devices(device_id) VALUES($1) ON CONFLICT DO NOTHING",
+        [deviceId]
+      );
+      console.log("Cihaz banlandı:", deviceId);
+    } else {
+      console.log("Banlanacak cihaz yok");
+    }
+
+    res.status(200).json({ message: "Kullanıcı silindi ve cihaz banlandı", deletedClient: deleteResult.rows[0] });
+  } catch (error) {
+    console.error("DeleteClientAndBanDevice Hatası:", error);
     res.status(500).json({ message: "Sunucu hatası" });
   }
 };

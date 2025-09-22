@@ -11,14 +11,24 @@ const JWT_SECRET = process.env.JWT_SECRET
 
 export const ClientRegister = async (req, res) => {
   try {
-    const { client_name, password, gender } = req.body
+    const { client_name, password, gender, androidId } = req.body
     const file = req.file
 
-    if (!client_name || !password || !gender || !file) {
+    if (!client_name || !password || !gender || !file || !androidId) {
       return res.status(400).json({ message: "Eksik alanlar var!" })
     }
 
-    
+    // Ban kontrolü
+    const banned = await db.query(
+      "SELECT * FROM banned_devices WHERE device_id = $1",
+      [androidId]
+    )
+
+    if (banned.rows.length > 0) {
+      return res.status(403).json({ message: "Bu cihaz banlı!" })
+    }
+
+    // Kullanıcı adı kontrolü
     const result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi = $1",
       [client_name]
@@ -28,16 +38,12 @@ export const ClientRegister = async (req, res) => {
       return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış." })
     }
 
-    
     const hashedPassword = await bcrypt.hash(password, 10)
-
-    
     const photo_path = file.filename
 
-    
     await db.query(
-      "INSERT INTO clients (kullanici_adi, password, gender, photo_base64) VALUES ($1, $2, $3, $4)",
-      [client_name, hashedPassword, gender, photo_path]
+      "INSERT INTO clients (kullanici_adi, password, gender, photo_base64, device_id) VALUES ($1, $2, $3, $4, $5)",
+      [client_name, hashedPassword, gender, photo_path, androidId]
     )
 
     return res.status(201).json({ message: "Kayıt başarılı!" })
