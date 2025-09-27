@@ -29,7 +29,7 @@ const io = new Server(httpServer, {
     }
 });
 
-// Online kullanıcıları sakla: userId -> socket.id
+
 const onlineUsers = new Map();
 
 io.on("connection", (socket) => {
@@ -86,10 +86,10 @@ io.on("connection", (socket) => {
     });
 });
 
-// Statik dosyalar
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// CORS ayarları
+
 const corsOptions = {
     origin: '*',
     methods: 'GET,POST,DELETE',
@@ -100,12 +100,12 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Route'lar
+
 app.use('/api/clients', clientRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/chat', chatRoutes);
 
-// Server başlat
+
 httpServer.listen(PORT, () => {
     console.log(`Server ${PORT} portunda başladı.`);
 });

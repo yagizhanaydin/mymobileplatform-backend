@@ -18,7 +18,7 @@ export const ClientRegister = async (req, res) => {
       return res.status(400).json({ message: "Eksik alanlar var!" })
     }
 
-    // Ban kontrolü
+
     const banned = await db.query(
       "SELECT * FROM banned_devices WHERE device_id = $1",
       [androidId]
@@ -28,7 +28,7 @@ export const ClientRegister = async (req, res) => {
       return res.status(403).json({ message: "Bu cihaz banlı!" })
     }
 
-    // Kullanıcı adı kontrolü
+   
     const result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi = $1",
       [client_name]
@@ -171,7 +171,7 @@ export const IlanKayit = async (req, res) => {
     try {
         const { city, issue } = req.body;
 
-        // Token’dan client id'yi alıyoruz
+        
         const clientId = req.userId;
 
         if (!city || !issue) {
@@ -752,5 +752,32 @@ export const ShowDangerLocations = async (req, res) => {
   } catch (error) {
     console.error("ShowDangerLocations error:", error);
     return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+  }
+};
+
+
+
+export const UserNameAndById = async (req, res) => {
+  try {
+    const receiverId = parseInt(req.params.id);
+    if (isNaN(receiverId)) return res.status(400).json({ message: "Geçersiz id" });
+
+    const result = await db.query(
+      "SELECT kullanici_adi FROM clients WHERE id=$1",
+      [receiverId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+
+    return res.status(200).json({
+      message: "Kullanıcı bulundu",
+      client_name: result.rows[0].kullanici_adi  
+    });
+
+  } catch (error) {
+    console.error("UserNameAndById error:", error);
+    return res.status(500).json({ message: "Sunucu hatası" });
   }
 };

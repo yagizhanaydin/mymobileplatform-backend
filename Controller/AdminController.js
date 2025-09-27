@@ -91,7 +91,7 @@ export const GetAllClients = async (req, res) => {
       gender: user.gender,
       role: user.role,
       photoUrl: user.photo_base64 
-        ? `http://10.246.110.245:3000/uploads/${user.photo_base64}`
+        ? `http://10.121.78.245:3000/uploads/${user.photo_base64}`
         : null
     }));
 
@@ -178,7 +178,7 @@ export const DeleteClientAndBanDevice = async (req, res) => {
     const clientId = req.params.id;
     console.log("Silinecek clientId:", clientId);
 
-    // Kullanıcının device_id'sini al
+
     const clientResult = await db.query("SELECT device_id FROM clients WHERE id=$1", [clientId]);
     if (clientResult.rowCount === 0) {
       console.log("Kullanıcı bulunamadı:", clientId);
@@ -188,11 +188,11 @@ export const DeleteClientAndBanDevice = async (req, res) => {
     const deviceId = clientResult.rows[0].device_id;
     console.log("Kullanıcının device_id'si:", deviceId);
 
-    // Kullanıcıyı sil
+  
     const deleteResult = await db.query("DELETE FROM clients WHERE id=$1 RETURNING *", [clientId]);
     console.log("Silinen kullanıcı:", deleteResult.rows[0]);
 
-    // Cihazı banla
+   
     if (deviceId) {
       await db.query(
         "INSERT INTO banned_devices(device_id) VALUES($1) ON CONFLICT DO NOTHING",
