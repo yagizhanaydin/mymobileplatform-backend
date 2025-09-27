@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import path from 'path'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
-
+import { containsBannedWord } from "../utils/bannedWordsCheck.js"  
 
 
 dotenv.config()
@@ -18,26 +18,31 @@ export const ClientRegister = async (req, res) => {
       return res.status(400).json({ message: "Eksik alanlar var!" })
     }
 
+    // 🔹 Yasaklı kelime kontrolü
+    if (containsBannedWord(client_name)) {
+      console.log("Yasaklı kelime bulundu:", client_name)
+      return res.status(400).json({ message: "Kullanıcı adı yasaklı kelime içeriyor!" })
+    }
 
+    // 🔹 Cihaz ban kontrolü
     const banned = await db.query(
       "SELECT * FROM banned_devices WHERE device_id = $1",
       [androidId]
     )
-
     if (banned.rows.length > 0) {
       return res.status(403).json({ message: "Bu cihaz banlı!" })
     }
 
-   
+    // 🔹 Kullanıcı adı daha önce alınmış mı?
     const result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi = $1",
       [client_name]
     )
-
     if (result.rows.length > 0) {
       return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış." })
     }
 
+    // 🔹 Şifre hashleme ve kullanıcı ekleme
     const hashedPassword = await bcrypt.hash(password, 10)
     const photo_path = file.filename
 
@@ -53,7 +58,6 @@ export const ClientRegister = async (req, res) => {
     return res.status(500).json({ message: "Sunucu hatası" })
   }
 }
-
 
 export const ClientLogin = async (req, res) => {
   try {
