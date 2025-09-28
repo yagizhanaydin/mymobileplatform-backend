@@ -223,10 +223,28 @@ export const IlanKayit = async (req, res) => {
 
 export const IlanShow = async (req, res) => {
   try {
-    const { city, issue, id } = req.query; // id ekledik
+    const { city, issue, id } = req.query;
+    const userId = parseInt(req.userId);
 
+    if (isNaN(userId)) {
+      return res.status(400).json({ success: false, message: "Geçersiz userId" });
+    }
+
+    // Kullanıcının cinsiyetini al
+    const userResult = await db.query("SELECT gender FROM clients WHERE id=$1", [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+    let userGender = userResult.rows[0].gender;
+
+    // Mapping: Türkçe → İngilizce
+    const genderMap = { 'Erkek': 'male', 'Kadın': 'female', 'both': 'both', 'Both': 'both' };
+    userGender = genderMap[userGender] || 'both'; // default 'both'  
+
+    // Ana query
     let query = `
-      SELECT i.id, i.city, i.issue, i.created_at, c.kullanici_adi, c.gender
+      SELECT i.id, i.city, i.issue, i.created_at, 
+             c.kullanici_adi, c.gender, i.target_gender
       FROM ilanlar i
       JOIN clients c ON i.client_id = c.id
     `;
@@ -234,7 +252,7 @@ export const IlanShow = async (req, res) => {
     const params = [];
     const conditions = [];
 
-    if (id) { // id filtreleme
+    if (id) {
       params.push(id);
       conditions.push(`i.id = $${params.length}`);
     }
@@ -249,17 +267,23 @@ export const IlanShow = async (req, res) => {
       conditions.push(`i.issue ILIKE $${params.length}`);
     }
 
+    // Gender filter
+    params.push(userGender);
+    conditions.push(`(i.target_gender = 'both' OR i.target_gender = $${params.length})`);
+
     if (conditions.length > 0) {
       query += " WHERE " + conditions.join(" AND ");
     }
 
     query += " ORDER BY i.created_at DESC";
 
-    const result = await db.query(query, params);
+    console.log("IlanShow Query:", query, params);
 
+    const result = await db.query(query, params);
     res.json({ success: true, data: result.rows });
+
   } catch (err) {
-    console.error(err);
+    console.error("IlanShow Hata:", err);
     res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 };
