@@ -302,7 +302,7 @@ export const AddYorum = async (req, res) => {
       return res.status(400).json({ success: false, message: "Yorum boş olamaz!" });
     }
 
-    // Yorum ekle
+  
     const result = await db.query(
       `INSERT INTO yorumlar (ilan_id, client_id, comment)
        VALUES ($1, $2, $3)
@@ -312,7 +312,7 @@ export const AddYorum = async (req, res) => {
 
     console.log("Yorum eklendi:", result.rows[0]);
 
-    // Kullanıcı bilgilerini almak için JOIN
+    
     const yorumId = result.rows[0].id;
     const yorumFull = await db.query(
       `SELECT y.id, y.ilan_id, y.client_id, c.kullanici_adi, c.gender, y.comment, y.created_at
