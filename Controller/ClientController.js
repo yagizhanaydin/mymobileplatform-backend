@@ -496,38 +496,58 @@ export const getAllUsers = async (req, res) => {
 };
 
 
-
-
 export const AddFriends = async (req, res) => {
     try {
+        // Authorization header kontrolü
         const authHeader = req.header("Authorization");
-        if (!authHeader) return res.status(401).json({ message: "Token yok" });
+        if (!authHeader) {
+            return res.status(401).json({ message: "Token yok" });
+        }
 
+        // Token çözümleme
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, JWT_SECRET);
+        const sender_id = decoded.id;
 
-        const sender_id = decoded.id; 
+        // İstek atılan kişi
         const { friendId: receiver_id } = req.body;
 
+        // Kendine istek atma engeli
         if (sender_id === receiver_id) {
             return res.status(400).json({ message: "Kendi kendine arkadaşlık isteği atamazsın." });
         }
 
-        const checkQuery = `SELECT * FROM friends WHERE sender_id = $1 AND receiver_id = $2`;
+        // Daha önce istek atılmış mı kontrolü
+        const checkQuery = `
+            SELECT * 
+            FROM friends 
+            WHERE sender_id = $1 AND receiver_id = $2
+        `;
         const existing = await db.query(checkQuery, [sender_id, receiver_id]);
 
         if (existing.rows.length > 0) {
             return res.status(400).json({ message: "Zaten bu kişiye arkadaşlık isteği göndermişsin." });
         }
 
-        const insertQuery = `INSERT INTO friends (sender_id, receiver_id) VALUES ($1, $2) RETURNING *`;
+        // Arkadaşlık isteği ekle
+        const insertQuery = `
+            INSERT INTO friends (sender_id, receiver_id) 
+            VALUES ($1, $2) 
+            RETURNING *
+        `;
         const result = await db.query(insertQuery, [sender_id, receiver_id]);
 
-        return res.status(200).json({ message: "Arkadaşlık isteği gönderildi.", data: result.rows[0] });
+        return res.status(200).json({
+            message: "Arkadaşlık isteği gönderildi.",
+            data: result.rows[0]
+        });
 
     } catch (error) {
         console.error("AddFriends error:", error);
-        return res.status(500).json({ message: "Sunucu hatası", error: error.message });
+        return res.status(500).json({
+            message: "Sunucu hatası",
+            error: error.message
+        });
     }
 };
 
@@ -546,7 +566,13 @@ export const ShowFriendRequest = async (req, res) => {
         console.log("Decoded userId:", userId); // LOG
 
         const query = `
-            SELECT f.id AS request_id, f.sender_id, c.kullanici_adi AS sender_name, f.status, f.created_at
+            SELECT 
+                f.id AS request_id, 
+                f.sender_id, 
+                c.kullanici_adi AS sender_name, 
+                c.gender AS sender_gender,   -- cinsiyet buradan geliyor
+                f.status, 
+                f.created_at
             FROM friends f
             JOIN clients c ON f.sender_id = c.id
             WHERE f.receiver_id = $1 AND f.status = 'pending'
@@ -567,6 +593,7 @@ export const ShowFriendRequest = async (req, res) => {
         return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
     }
 };
+
 
 
 export const ResponseFriendRequest = async (req, res) => {
