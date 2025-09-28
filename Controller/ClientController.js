@@ -18,13 +18,13 @@ export const ClientRegister = async (req, res) => {
       return res.status(400).json({ message: "Eksik alanlar var!" })
     }
 
-    // 🔹 Yasaklı kelime kontrolü
+
     if (containsBannedWord(client_name)) {
       console.log("Yasaklı kelime bulundu:", client_name)
       return res.status(400).json({ message: "Kullanıcı adı yasaklı kelime içeriyor!" })
     }
 
-    // 🔹 Cihaz ban kontrolü
+ 
     const banned = await db.query(
       "SELECT * FROM banned_devices WHERE device_id = $1",
       [androidId]
@@ -33,7 +33,7 @@ export const ClientRegister = async (req, res) => {
       return res.status(403).json({ message: "Bu cihaz banlı!" })
     }
 
-    // 🔹 Kullanıcı adı daha önce alınmış mı?
+
     const result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi = $1",
       [client_name]
@@ -42,7 +42,7 @@ export const ClientRegister = async (req, res) => {
       return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış." })
     }
 
-    // 🔹 Şifre hashleme ve kullanıcı ekleme
+
     const hashedPassword = await bcrypt.hash(password, 10)
     const photo_path = file.filename
 
@@ -173,16 +173,13 @@ export const GetDataClient = async (req, res) => {
 
 export const IlanKayit = async (req, res) => {
     try {
-        const { city, issue } = req.body;
-
-        
+        const { city, issue, target_gender } = req.body; 
         const clientId = req.userId;
 
-        if (!city || !issue) {
-            return res.status(400).json({ success: false, message: "İl ve sorun alanı boş olamaz!" });
+        if (!city || !issue || !target_gender) {
+            return res.status(400).json({ success: false, message: "İl, sorun ve hedef kitle alanları boş olamaz!" });
         }
 
-       
         const iller = [
             "Adana","Adıyaman","Afyon","Ağrı","Amasya","Ankara","Antalya","Artvin","Aydın",
             "Balıkesir","Bilecik","Bingöl","Bitlis","Bolu","Burdur","Bursa","Çanakkale",
@@ -200,10 +197,14 @@ export const IlanKayit = async (req, res) => {
             return res.status(400).json({ success: false, message: "Geçerli bir il giriniz!" });
         }
 
-        // İlanı eklerken client_id ile ilişkilendiriyoruz
+        const validGenders = ["male", "female", "both"];
+        if (!validGenders.includes(target_gender)) {
+            return res.status(400).json({ success: false, message: "Hedef kitle 'male', 'female' veya 'both' olmalıdır!" });
+        }
+
         const result = await db.query(
-            "INSERT INTO ilanlar (client_id, city, issue) VALUES ($1, $2, $3) RETURNING *",
-            [clientId, city, issue]
+            "INSERT INTO ilanlar (client_id, city, issue, target_gender) VALUES ($1, $2, $3, $4) RETURNING *",
+            [clientId, city, issue, target_gender]
         );
 
         return res.status(201).json({
@@ -217,6 +218,7 @@ export const IlanKayit = async (req, res) => {
         return res.status(500).json({ success: false, message: "Sunucu hatası!" });
     }
 };
+
 
 
 export const IlanShow = async (req, res) => {
