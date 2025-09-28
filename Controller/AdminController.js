@@ -1,7 +1,6 @@
 import db from '../database/DB.js'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
-
 import fs from "fs"
 import path from "path"
 import axios from "axios";
@@ -136,28 +135,46 @@ export const DeleteClient = async (req, res) => {
 };
 
 
+
 export const ApproveClient = async (req, res) => {
   try {
     if (req.role !== "admin") {
-      return res.status(403).json({ message: "Yetkisiz erişim" });
+      return res.status(403).json({ message: "Yetkisiz erişim" })
     }
 
-    const clientId = req.params.id;
+    const clientId = req.params.id
 
-    
-    await db.query(
-      "UPDATE clients SET approved=true WHERE id=$1",
+    // Kullanıcı bilgilerini al (fotoğraf yolu için)
+    const clientResult = await db.query(
+      "SELECT photo_base64 FROM clients WHERE id=$1",
       [clientId]
-    );
+    )
 
-    console.log(` Kullanıcı ${clientId} onaylandı`);
+    if (clientResult.rowCount === 0) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" })
+    }
 
-    res.status(200).json({ message: "Kullanıcı onaylandı" });
+    const photoFile = clientResult.rows[0].photo_base64
+
+    // Kullanıcıyı onayla
+    await db.query("UPDATE clients SET approved=true WHERE id=$1", [clientId])
+
+    // Fotoğrafı uploads klasöründen sil
+    if (photoFile) {
+      const filePath = path.join(process.cwd(), "uploads", photoFile)
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath)
+        console.log("Fotoğraf silindi (onay sonrası):", filePath)
+      }
+    }
+
+    console.log(`Kullanıcı ${clientId} onaylandı`)
+    res.status(200).json({ message: "Kullanıcı onaylandı" })
   } catch (error) {
-    console.error(" ApproveClient Hatası:", error);
-    res.status(500).json({ message: "Sunucu hatası" });
+    console.error("ApproveClient Hatası:", error)
+    res.status(500).json({ message: "Sunucu hatası" })
   }
-};
+}
 
 
 
@@ -167,45 +184,66 @@ export const ApproveClient = async (req, res) => {
 
 export const DeleteClientAndBanDevice = async (req, res) => {
   try {
-    console.log("DeleteClientAndBanDevice çağrıldı, req.params:", req.params);
-    console.log("Kullanıcı rolü:", req.role);
+    console.log("DeleteClientAndBanDevice çağrıldı, req.params:", req.params)
+    console.log("Kullanıcı rolü:", req.role)
 
     if (req.role !== "admin") {
-      console.log("Yetkisiz erişim tespit edildi");
-      return res.status(403).json({ message: "Yetkisiz erişim" });
+      console.log("Yetkisiz erişim tespit edildi")
+      return res.status(403).json({ message: "Yetkisiz erişim" })
     }
 
-    const clientId = req.params.id;
-    console.log("Silinecek clientId:", clientId);
+    const clientId = req.params.id
+    console.log("Silinecek clientId:", clientId)
 
+    // Kullanıcı bilgilerini al (device_id + fotoğraf)
+    const clientResult = await db.query(
+      "SELECT device_id, photo_base64 FROM clients WHERE id=$1",
+      [clientId]
+    )
 
-    const clientResult = await db.query("SELECT device_id FROM clients WHERE id=$1", [clientId]);
     if (clientResult.rowCount === 0) {
-      console.log("Kullanıcı bulunamadı:", clientId);
-      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+      console.log("Kullanıcı bulunamadı:", clientId)
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" })
     }
 
-    const deviceId = clientResult.rows[0].device_id;
-    console.log("Kullanıcının device_id'si:", deviceId);
+    const deviceId = clientResult.rows[0].device_id
+    const photoFile = clientResult.rows[0].photo_base64
+    console.log("Kullanıcının device_id'si:", deviceId)
 
-  
-    const deleteResult = await db.query("DELETE FROM clients WHERE id=$1 RETURNING *", [clientId]);
-    console.log("Silinen kullanıcı:", deleteResult.rows[0]);
+    // Kullanıcıyı sil
+    const deleteResult = await db.query(
+      "DELETE FROM clients WHERE id=$1 RETURNING *",
+      [clientId]
+    )
+    console.log("Silinen kullanıcı:", deleteResult.rows[0])
 
-   
+    // Fotoğrafı uploads klasöründen sil
+    if (photoFile) {
+      const filePath = path.join(process.cwd(), "uploads", photoFile)
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath)
+        console.log("Fotoğraf silindi:", filePath)
+      }
+    }
+
+    // Cihazı banla
     if (deviceId) {
       await db.query(
         "INSERT INTO banned_devices(device_id) VALUES($1) ON CONFLICT DO NOTHING",
         [deviceId]
-      );
-      console.log("Cihaz banlandı:", deviceId);
+      )
+      console.log("Cihaz banlandı:", deviceId)
     } else {
-      console.log("Banlanacak cihaz yok");
+      console.log("Banlanacak cihaz yok")
     }
 
-    res.status(200).json({ message: "Kullanıcı silindi ve cihaz banlandı", deletedClient: deleteResult.rows[0] });
+    res.status(200).json({
+      message: "Kullanıcı silindi, cihaz banlandı ve fotoğraf kaldırıldı",
+      deletedClient: deleteResult.rows[0],
+    })
   } catch (error) {
-    console.error("DeleteClientAndBanDevice Hatası:", error);
-    res.status(500).json({ message: "Sunucu hatası" });
+    console.error("DeleteClientAndBanDevice Hatası:", error)
+    res.status(500).json({ message: "Sunucu hatası" })
   }
-};
+}
+
