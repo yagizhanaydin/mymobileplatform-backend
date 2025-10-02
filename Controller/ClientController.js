@@ -11,53 +11,61 @@ const JWT_SECRET = process.env.JWT_SECRET
 
 export const ClientRegister = async (req, res) => {
   try {
-    const { client_name, password, gender, androidId } = req.body
-    const file = req.file
+    const { client_name, password, gender, androidId, securityQuestion, securityAnswer } = req.body;
+    const file = req.file;
 
-    if (!client_name || !password || !gender || !file || !androidId) {
-      return res.status(400).json({ message: "Eksik alanlar var!" })
+    // Logla: gelen veriyi
+    console.log("ClientRegister input:", {
+      client_name,
+      gender,
+      androidId,
+      securityQuestion,
+      securityAnswer,
+      file: file ? file.filename : null
+    });
+
+    if (!client_name || !password || !gender || !file || !androidId || !securityQuestion || !securityAnswer) {
+      return res.status(400).json({ message: "Eksik alanlar var!" });
     }
-
 
     if (containsBannedWord(client_name)) {
-      console.log("Yasaklı kelime bulundu:", client_name)
-      return res.status(400).json({ message: "Kullanıcı adı yasaklı kelime içeriyor!" })
+      return res.status(400).json({ message: "Kullanıcı adı yasaklı kelime içeriyor!" });
     }
 
- 
     const banned = await db.query(
       "SELECT * FROM banned_devices WHERE device_id = $1",
       [androidId]
-    )
+    );
     if (banned.rows.length > 0) {
-      return res.status(403).json({ message: "Bu cihaz banlı!" })
+      return res.status(403).json({ message: "Bu cihaz banlı!" });
     }
-
 
     const result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi = $1",
       [client_name]
-    )
+    );
     if (result.rows.length > 0) {
-      return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış." })
+      return res.status(400).json({ message: "Bu kullanıcı adı zaten alınmış." });
     }
 
-
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const photo_path = file.filename
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const photo_path = file.filename;
 
     await db.query(
-      "INSERT INTO clients (kullanici_adi, password, gender, photo_base64, device_id) VALUES ($1, $2, $3, $4, $5)",
-      [client_name, hashedPassword, gender, photo_path, androidId]
-    )
+      `INSERT INTO clients 
+      (kullanici_adi, password, gender, photo_base64, device_id, security_question, security_answer) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [client_name, hashedPassword, gender, photo_path, androidId, securityQuestion, securityAnswer]
+    );
 
-    return res.status(201).json({ message: "Kayıt başarılı!" })
+    return res.status(201).json({ message: "Kayıt başarılı!" });
 
   } catch (error) {
-    console.error("Register error:", error)
-    return res.status(500).json({ message: "Sunucu hatası" })
+    console.error("ClientRegister error:", error);
+    return res.status(500).json({ message: "Sunucu hatası" });
   }
 }
+
 
 export const ClientLogin = async (req, res) => {
   try {
@@ -887,7 +895,7 @@ export const BlockUser = async (req, res) => {
             return res.status(400).json({ success: false, message: "Kendini engelleyemezsin." });
         }
 
-        // Daha önce engellenmiş mi kontrol
+       
         const checkQuery = `
             SELECT * FROM blocked_users
             WHERE blocker_id = $1 AND blocked_id = $2
@@ -900,7 +908,7 @@ export const BlockUser = async (req, res) => {
             return res.status(400).json({ success: false, message: "Bu kullanıcıyı zaten engellemişsin." });
         }
 
-        // Engelleme ekle
+     
         const insertQuery = `
             INSERT INTO blocked_users (blocker_id, blocked_id)
             VALUES ($1, $2)
@@ -992,4 +1000,33 @@ export const GetBlockedUsers = async (req, res) => {
         console.error("GetBlockedUsers error:", error);
         return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
     }
+};
+
+
+export const DeleteClientAccount = async (req, res) => {
+  try {
+    // verifyToken middleware'den gelen userId
+    const userId = parseInt(req.userId);
+
+    // userId geçerli değilse hata döndür
+    if (isNaN(userId)) {
+      return res.status(400).json({ success: false, message: "Geçersiz id" });
+    }
+
+    // Hesabı sil
+    const result = await db.query(
+      "DELETE FROM clients WHERE id = $1",
+      [userId]
+    );
+
+    // Başarılı yanıt
+    return res.json({ success: true, message: "Hesap silindi" });
+  } catch (err) {
+    console.error("DeleteClient error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Sunucu hatası",
+      error: err.message
+    });
+  }
 };

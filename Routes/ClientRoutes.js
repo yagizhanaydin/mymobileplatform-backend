@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, DeleteClient, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
+import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, DeleteClient, DeleteClientAccount, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 import { GetUserSettings, UpdateUserSettings } from '../Controller/SettingController.js';
@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage })
 
-
+router.delete('/delete-account',verifyToken,DeleteClientAccount);
 router.post('/register', upload.single('photo'), ClientRegister)
 router.post('/login',ClientLogin)
 router.get('/clientpanel',verifyToken,GetDataClient)
@@ -46,4 +46,5 @@ router.post("/unblock-user", verifyToken, UnblockUser);
 router.get("/blocked-users", verifyToken, GetBlockedUsers);
 router.get('/settings', verifyToken, GetUserSettings);
 router.post('/settings/update', verifyToken, UpdateUserSettings);
+
 export default router

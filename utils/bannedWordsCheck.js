@@ -26,13 +26,15 @@ function escapeForRegex(s) {
 }
 
 // 🔹 Banned kelimelerden regex listesi oluştur
+// 🔹 Kısa kelimeleri ignore et (3 karakterden kısa)
 const bannedRegexList = banned_words
   .map(word => lettersAndDigits(word))
-  .filter(w => w.length > 0)
+  .filter(w => w.length >= 4)
   .map(word => {
     const chars = Array.from(word)
       .map(ch => escapeForRegex(ch))
-      .join("[^\\p{L}\\d]*") // araya karakter gelmişse yakala
+      // Araya sadece boşluk, nokta, tire veya alt çizgi gelebilir
+      .join("[ ._\\-]*")
     return new RegExp(chars, "iu")
   })
 
@@ -41,10 +43,10 @@ export function containsBannedWord(input = "") {
   const base = baseNormalize(input)
   const inputLettersDigits = lettersAndDigits(base)
 
-  // 1) Direkt includes ile kontrol (kısa kelimeleri de yakalar)
+  // 1) Direkt includes ile kontrol (uzun kelimeler için)
   for (const banned of banned_words) {
     const bLettersDigits = lettersAndDigits(banned)
-    if (!bLettersDigits) continue
+    if (!bLettersDigits || bLettersDigits.length < 4) continue
     if (inputLettersDigits.includes(bLettersDigits)) return true
   }
 
@@ -65,7 +67,9 @@ if (import.meta.main) {
     "p0rn0",           // yasak
     "anasik",          // yasak
     "anasiken",        // yasak
-    "temiznick"        // serbest
+    "temiznick",       // serbest
+    "kadınlar",        // serbest (önceden yanlış yakalanıyordu)
+    "kan"              // serbest
   ]
 
   for (const nick of testCases) {
