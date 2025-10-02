@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { AddFriends, AddYorum, ClientLogin, ClientRegister, DeleteClient, deleteIlan, getAllUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UserNameAndById,  } from '../Controller/ClientController.js'
+import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, DeleteClient, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 
@@ -39,5 +39,9 @@ router.delete("/:friendId", verifyToken, DeleteClient);
 router.get("/friends", verifyToken,GetFriendsList);
 router.get("/locations/danger", verifyToken,ShowDangerLocations);
 router.get("/username/:id", verifyToken,UserNameAndById);
+// Engelleme
+router.post("/block-user", verifyToken, BlockUser);
+router.post("/unblock-user", verifyToken, UnblockUser);
+router.get("/blocked-users", verifyToken, GetBlockedUsers);
 
 export default router

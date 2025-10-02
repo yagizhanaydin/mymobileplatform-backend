@@ -461,7 +461,6 @@ export const PostLocation = async (req, res) => {
 
 
 
-
 export const getAllUsers = async (req, res) => {
   try {
     const authHeader = req.header("Authorization");
@@ -474,14 +473,18 @@ export const getAllUsers = async (req, res) => {
       return res.status(401).json({ success: false, message: "Token yok" });
     }
 
+    // Token decode
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const currentUserId = parseInt(decoded.id); // 🔥 parseInt ekledim
 
-    jwt.verify(token, JWT_SECRET);
+    console.log("getAllUsers request => currentUserId:", currentUserId, typeof currentUserId);
 
-   
     const result = await db.query(
       `SELECT id, kullanici_adi 
        FROM clients 
-       ORDER BY kullanici_adi ASC`
+       WHERE id != $1
+       ORDER BY kullanici_adi ASC`,
+      [currentUserId]
     );
 
     return res.status(200).json({
@@ -490,7 +493,10 @@ export const getAllUsers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("getAllUsers error:", error);
+    console.error("getAllUsers error:", {
+      message: error.message,
+      stack: error.stack
+    });
     return res.status(500).json({ success: false, message: "Sunucu hatası" });
   }
 };
@@ -515,6 +521,17 @@ export const AddFriends = async (req, res) => {
         // Kendine istek atma engeli
         if (sender_id === receiver_id) {
             return res.status(400).json({ message: "Kendi kendine arkadaşlık isteği atamazsın." });
+        }
+
+        // Engelleme kontrolü (sadece sender engellediyse)
+        const blockCheckQuery = `
+            SELECT * FROM blocked_users
+            WHERE blocker_id = $1 AND blocked_id = $2
+        `;
+        const blocked = await db.query(blockCheckQuery, [sender_id, receiver_id]);
+
+        if (blocked.rows.length > 0) {
+            return res.status(403).json({ message: "Bu kullanıcıyı engellediğin için istek gönderemezsin." });
         }
 
         // Daha önce istek atılmış mı kontrolü
@@ -837,4 +854,137 @@ export const UserNameAndById = async (req, res) => {
     console.error("UserNameAndById error:", error);
     return res.status(500).json({ message: "Sunucu hatası" });
   }
+};
+
+
+export const BlockUser = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        if (!authHeader) {
+            console.warn("BlockUser: Authorization header yok");
+            return res.status(401).json({ success: false, message: "Token yok" });
+        }
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const blocker_id = decoded.id;
+
+        const { userId: blocked_id } = req.body;
+
+        console.log("BlockUser request =>", {
+            blocker_id,
+            blocked_id,
+            body: req.body
+        });
+
+        if (blocker_id === blocked_id) {
+            console.warn(`Kendi kendini engelleme denemesi: ${blocker_id}`);
+            return res.status(400).json({ success: false, message: "Kendini engelleyemezsin." });
+        }
+
+        // Daha önce engellenmiş mi kontrol
+        const checkQuery = `
+            SELECT * FROM blocked_users
+            WHERE blocker_id = $1 AND blocked_id = $2
+        `;
+        console.log("Check query params:", [blocker_id, blocked_id]);
+        const existing = await db.query(checkQuery, [blocker_id, blocked_id]);
+
+        if (existing.rows.length > 0) {
+            console.warn(`Kullanıcı zaten engellenmiş: blocker=${blocker_id}, blocked=${blocked_id}`);
+            return res.status(400).json({ success: false, message: "Bu kullanıcıyı zaten engellemişsin." });
+        }
+
+        // Engelleme ekle
+        const insertQuery = `
+            INSERT INTO blocked_users (blocker_id, blocked_id)
+            VALUES ($1, $2)
+            RETURNING *
+        `;
+        console.log("Insert query params:", [blocker_id, blocked_id]);
+        const result = await db.query(insertQuery, [blocker_id, blocked_id]);
+
+        console.log("BlockUser success =>", result.rows[0]);
+
+        return res.status(200).json({
+            success: true,
+            message: "Kullanıcı engellendi.",
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("BlockUser error:", {
+            message: error.message,
+            stack: error.stack
+        });
+        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+    }
+};
+
+
+
+export const UnblockUser = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        if (!authHeader) {
+            return res.status(401).json({ message: "Token yok" });
+        }
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const blocker_id = decoded.id;
+
+        const { userId: blocked_id } = req.body;
+
+        const deleteQuery = `
+            DELETE FROM blocked_users
+            WHERE blocker_id = $1 AND blocked_id = $2
+            RETURNING *
+        `;
+        const result = await db.query(deleteQuery, [blocker_id, blocked_id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Bu kullanıcıyı engellememişsin." });
+        }
+
+        return res.status(200).json({
+            message: "Kullanıcının engeli kaldırıldı.",
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("UnblockUser error:", error);
+        return res.status(500).json({ message: "Sunucu hatası", error: error.message });
+    }
+};
+
+
+export const GetBlockedUsers = async (req, res) => {
+    try {
+        const authHeader = req.header("Authorization");
+        if (!authHeader) {
+            return res.status(401).json({ success: false, message: "Token yok" });
+        }
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const blocker_id = decoded.id;
+
+        const query = `
+            SELECT c.id, c.kullanici_adi, c.gender, c.photo_base64, b.created_at
+            FROM blocked_users b
+            JOIN clients c ON c.id = b.blocked_id
+            WHERE b.blocker_id = $1
+        `;
+        const result = await db.query(query, [blocker_id]);
+
+        return res.status(200).json({
+            success: true,
+            data: result.rows
+        });
+
+    } catch (error) {
+        console.error("GetBlockedUsers error:", error);
+        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+    }
 };
