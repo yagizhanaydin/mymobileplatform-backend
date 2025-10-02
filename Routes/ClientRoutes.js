@@ -3,6 +3,7 @@ import multer from 'multer'
 import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, DeleteClient, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
+import { GetUserSettings, UpdateUserSettings } from '../Controller/SettingController.js';
 
 const router = express.Router()
 
@@ -43,5 +44,6 @@ router.get("/username/:id", verifyToken,UserNameAndById);
 router.post("/block-user", verifyToken, BlockUser);
 router.post("/unblock-user", verifyToken, UnblockUser);
 router.get("/blocked-users", verifyToken, GetBlockedUsers);
-
+router.get('/settings', verifyToken, GetUserSettings);
+router.post('/settings/update', verifyToken, UpdateUserSettings);
 export default router

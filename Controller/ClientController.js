@@ -504,106 +504,111 @@ export const getAllUsers = async (req, res) => {
 
 export const AddFriends = async (req, res) => {
     try {
-        // Authorization header kontrolü
         const authHeader = req.header("Authorization");
-        if (!authHeader) {
-            return res.status(401).json({ message: "Token yok" });
-        }
+        if (!authHeader) return res.status(401).json({ message: "Token yok" });
 
-        // Token çözümleme
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, JWT_SECRET);
         const sender_id = decoded.id;
 
-        // İstek atılan kişi
         const { friendId: receiver_id } = req.body;
-
-        // Kendine istek atma engeli
         if (sender_id === receiver_id) {
             return res.status(400).json({ message: "Kendi kendine arkadaşlık isteği atamazsın." });
         }
 
-        // Engelleme kontrolü (sadece sender engellediyse)
-        const blockCheckQuery = `
-            SELECT * FROM blocked_users
-            WHERE blocker_id = $1 AND blocked_id = $2
-        `;
-        const blocked = await db.query(blockCheckQuery, [sender_id, receiver_id]);
+        // Kullanıcıların cinsiyetlerini çek
+        const userQuery = `SELECT id, gender FROM clients WHERE id = ANY($1::int[])`;
+        const userResult = await db.query(userQuery, [[sender_id, receiver_id]]);
+        const senderGender = userResult.rows.find(u => u.id === sender_id)?.gender;
+        const receiverGender = userResult.rows.find(u => u.id === receiver_id)?.gender;
+        if (!senderGender || !receiverGender) {
+            return res.status(404).json({ message: "Kullanıcı bulunamadı." });
+        }
 
+        // Receiver’ın ayarını kontrol et
+        const receiverSettingsQuery = `
+            SELECT block_opposite_gender_follow 
+            FROM user_settings 
+            WHERE user_id = $1
+        `;
+        const receiverSettingsResult = await db.query(receiverSettingsQuery, [receiver_id]);
+        const blockOpposite = receiverSettingsResult.rows[0]?.block_opposite_gender_follow ?? false;
+
+        if (blockOpposite && senderGender !== receiverGender) {
+            return res.status(403).json({ message: "Bu kullanıcı karşı cinsin arkadaşlık isteğine kapalı." });
+        }
+
+        // Engellenmiş kullanıcı kontrolü
+        const blockedQuery = `SELECT * FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`;
+        const blocked = await db.query(blockedQuery, [sender_id, receiver_id]);
         if (blocked.rows.length > 0) {
             return res.status(403).json({ message: "Bu kullanıcıyı engellediğin için istek gönderemezsin." });
         }
 
-        // Daha önce istek atılmış mı kontrolü
-        const checkQuery = `
-            SELECT * 
-            FROM friends 
-            WHERE sender_id = $1 AND receiver_id = $2
-        `;
-        const existing = await db.query(checkQuery, [sender_id, receiver_id]);
-
-        if (existing.rows.length > 0) {
-            return res.status(400).json({ message: "Zaten bu kişiye arkadaşlık isteği göndermişsin." });
-        }
-
-        // Arkadaşlık isteği ekle
+        // Arkadaşlık isteğini ekle veya güncelle
         const insertQuery = `
-            INSERT INTO friends (sender_id, receiver_id) 
-            VALUES ($1, $2) 
+            INSERT INTO friends (sender_id, receiver_id, status, created_at)
+            VALUES ($1, $2, 'pending', NOW())
+            ON CONFLICT (sender_id, receiver_id)
+            DO UPDATE SET status = 'pending', created_at = NOW()
             RETURNING *
         `;
         const result = await db.query(insertQuery, [sender_id, receiver_id]);
 
-        return res.status(200).json({
-            message: "Arkadaşlık isteği gönderildi.",
-            data: result.rows[0]
-        });
+        return res.status(200).json({ message: "Arkadaşlık isteği gönderildi.", data: result.rows[0] });
 
     } catch (error) {
         console.error("AddFriends error:", error);
-        return res.status(500).json({
-            message: "Sunucu hatası",
-            error: error.message
-        });
+        return res.status(500).json({ message: "Sunucu hatası", error: error.message });
     }
 };
-
 
 export const ShowFriendRequest = async (req, res) => {
     try {
         const authHeader = req.header("Authorization");
-        console.log("ShowFriendRequest tetiklendi, Auth Header:", authHeader); // LOG
-
         if (!authHeader) return res.status(401).json({ message: "Token yok" });
 
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, JWT_SECRET);
         const userId = decoded.id;
 
-        console.log("Decoded userId:", userId); // LOG
+        // Receiver’ın ayarını çek
+        const settingsQuery = `SELECT block_opposite_gender_follow FROM user_settings WHERE user_id = $1`;
+        const settingsResult = await db.query(settingsQuery, [userId]);
+        const blockOpposite = settingsResult.rows[0]?.block_opposite_gender_follow ?? false;
 
         const query = `
             SELECT 
                 f.id AS request_id, 
                 f.sender_id, 
                 c.kullanici_adi AS sender_name, 
-                c.gender AS sender_gender,   -- cinsiyet buradan geliyor
+                c.gender AS sender_gender,  
                 f.status, 
                 f.created_at
             FROM friends f
             JOIN clients c ON f.sender_id = c.id
-            WHERE f.receiver_id = $1 AND f.status = 'pending'
+            WHERE f.receiver_id = $1 
+              AND f.status = 'pending'
+              AND NOT EXISTS (
+                  SELECT 1 FROM blocked_users bu 
+                  WHERE (bu.blocker_id = $1 AND bu.blocked_id = f.sender_id)
+                     OR (bu.blocker_id = f.sender_id AND bu.blocked_id = $1)
+              )
             ORDER BY f.created_at DESC
         `;
 
-        const result = await db.query(query, [userId]);
+        let result = await db.query(query, [userId]);
 
-        console.log("Query result rows:", result.rows); // LOG
+        // Karşı cins filtrelemesi (block açıksa)
+        if (blockOpposite) {
+            const myGenderQuery = `SELECT gender FROM clients WHERE id = $1`;
+            const myGenderResult = await db.query(myGenderQuery, [userId]);
+            const myGender = myGenderResult.rows[0]?.gender?.toLowerCase();
 
-        return res.status(200).json({
-            success: true,
-            data: result.rows
-        });
+            result.rows = result.rows.filter(r => r.sender_gender?.toLowerCase() === myGender);
+        }
+
+        return res.status(200).json({ success: true, data: result.rows });
 
     } catch (error) {
         console.error("ShowFriendRequest error:", error);
