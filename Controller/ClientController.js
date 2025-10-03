@@ -1042,3 +1042,58 @@ export const DeleteClientAccount = async (req, res) => {
     });
   }
 };
+
+
+export const PutClient = async (req, res) => {
+  try {
+    const { kullanici_adi, password, security_answer } = req.body
+    const userId = req.userId 
+
+    // Zorunlu alan kontrolü
+    if (!kullanici_adi || !password || !security_answer) {
+      return res.status(400).json({ success: false, message: "Kullanıcı adı, şifre ve güvenlik cevabı zorunlu" })
+    }
+
+    // Kullanıcı adı uzunluğu kontrolü
+    if (kullanici_adi.length < 6 || kullanici_adi.length > 20) {
+      return res.status(400).json({ success: false, message: "Kullanıcı adı 6-20 karakter olmalı" })
+    }
+
+    // Yasaklı kelime kontrolü
+    if (containsBannedWord(kullanici_adi)) {
+      return res.status(400).json({ success: false, message: "Bu kullanıcı adı yasaklı kelime içeriyor" })
+    }
+
+    // Kullanıcı adı başka biri tarafından kullanılıyor mu?
+    const checkUser = await db.query(
+      "SELECT id FROM clients WHERE kullanici_adi = $1 AND id != $2",
+      [kullanici_adi, userId]
+    )
+    if (checkUser.rows.length > 0) {
+      return res.status(400).json({ success: false, message: "Kullanıcı adı zaten alınmış" })
+    }
+
+    // Sadece güvenlik cevabı kontrolü
+    const userCheck = await db.query(
+      "SELECT security_answer FROM clients WHERE id = $1",
+      [userId]
+    )
+    if (userCheck.rows.length === 0 || userCheck.rows[0].security_answer !== security_answer) {
+      return res.status(403).json({ success: false, message: "Güvenlik cevabı yanlış" })
+    }
+
+    // Şifreyi hashle
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Güncelle
+    await db.query(
+      "UPDATE clients SET kullanici_adi = $1, password = $2 WHERE id = $3",
+      [kullanici_adi, hashedPassword, userId]
+    )
+
+    return res.json({ success: true, message: "Hesap bilgileri güncellendi ✅" })
+  } catch (err) {
+    console.error("PutClient error:", err)
+    return res.status(500).json({ success: false, message: "Sunucu hatası" })
+  }
+}

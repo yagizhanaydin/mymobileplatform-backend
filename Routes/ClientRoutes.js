@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, DeleteClient, DeleteClientAccount, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
+import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, DeleteClient, DeleteClientAccount, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, PutClient, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 import { GetUserSettings, UpdateUserSettings } from '../Controller/SettingController.js';
@@ -47,5 +47,5 @@ router.get("/blocked-users", verifyToken, GetBlockedUsers);
 router.get('/settings', verifyToken, GetUserSettings);
 router.post('/settings/update', verifyToken, UpdateUserSettings);
 router.post('/delete-account', verifyToken, DeleteClientAccount);
-
+router.put('/update-account',verifyToken,PutClient);
 export default router
