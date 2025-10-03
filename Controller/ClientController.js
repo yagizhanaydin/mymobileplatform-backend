@@ -1005,28 +1005,40 @@ export const GetBlockedUsers = async (req, res) => {
 
 export const DeleteClientAccount = async (req, res) => {
   try {
-    // verifyToken middleware'den gelen userId
     const userId = parseInt(req.userId);
+    const { answer } = req.body; // 👈 güvenlik cevabı client'tan gelecek
 
-    // userId geçerli değilse hata döndür
     if (isNaN(userId)) {
       return res.status(400).json({ success: false, message: "Geçersiz id" });
     }
 
-    // Hesabı sil
-    const result = await db.query(
-      "DELETE FROM clients WHERE id = $1",
+    // Kullanıcının gerçek güvenlik cevabını çek
+    const checkResult = await db.query(
+      "SELECT security_answer FROM clients WHERE id = $1",
       [userId]
     );
 
-    // Başarılı yanıt
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    const realAnswer = checkResult.rows[0].security_answer;
+
+    // Cevap kontrolü (case insensitive yapabilirsin)
+    if (realAnswer.toLowerCase() !== String(answer).toLowerCase()) {
+      return res.status(401).json({ success: false, message: "Güvenlik cevabı yanlış!" });
+    }
+
+    // Doğruysa hesabı sil
+    await db.query("DELETE FROM clients WHERE id = $1", [userId]);
+
     return res.json({ success: true, message: "Hesap silindi" });
   } catch (err) {
     console.error("DeleteClient error:", err);
     return res.status(500).json({
       success: false,
       message: "Sunucu hatası",
-      error: err.message
+      error: err.message,
     });
   }
 };

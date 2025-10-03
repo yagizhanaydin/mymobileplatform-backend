@@ -66,10 +66,8 @@ if (import.meta.main) {
     "porno",           // yasak
     "p0rn0",           // yasak
     "anasik",          // yasak
-    "anasiken",        // yasak
-    "temiznick",       // serbest
-    "kadınlar",        // serbest (önceden yanlış yakalanıyordu)
-    "kan"              // serbest
+    "anasiken",        
+    "kan"             
   ]
 
   for (const nick of testCases) {

@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage })
 
-router.delete('/delete-account',verifyToken,DeleteClientAccount);
+
 router.post('/register', upload.single('photo'), ClientRegister)
 router.post('/login',ClientLogin)
 router.get('/clientpanel',verifyToken,GetDataClient)
@@ -46,5 +46,6 @@ router.post("/unblock-user", verifyToken, UnblockUser);
 router.get("/blocked-users", verifyToken, GetBlockedUsers);
 router.get('/settings', verifyToken, GetUserSettings);
 router.post('/settings/update', verifyToken, UpdateUserSettings);
+router.post('/delete-account', verifyToken, DeleteClientAccount);
 
 export default router
