@@ -325,3 +325,51 @@ export const deleteComplaint = async (req, res) => {
         });
     }
 };
+
+
+export const GetSikayetYorum = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                ys.id AS sikayet_id,
+                ys.reason AS sikayet_sebebi,
+                ys.created_at AS sikayet_tarihi,
+                y.id AS yorum_id,
+                y.comment AS yorum_icerigi,
+                y.ilan_id,
+                COALESCE(c.kullanici_adi, 'Bilinmiyor') AS yorum_sahibi
+            FROM yorum_sikayetleri ys
+            JOIN yorumlar y ON y.id = ys.yorum_id
+            LEFT JOIN clients c ON c.id = y.client_id
+            ORDER BY ys.created_at DESC;
+        `;
+        const result = await db.query(query);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Sunucu hatası." });
+    }
+};
+
+
+export const deleteComment = async (req, res) => {
+    try {
+        const commentId = req.params.id;
+
+        const commentResult = await db.query(
+            "SELECT * FROM yorumlar WHERE id = $1",
+            [commentId]
+        );
+
+        if (commentResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "Yorum bulunamadı!" });
+        }
+
+        await db.query("DELETE FROM yorumlar WHERE id = $1", [commentId]);
+
+        res.json({ success: true, message: "Yorum ve ilgili şikayetler silindi!" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Sunucu hatası." });
+    }
+};

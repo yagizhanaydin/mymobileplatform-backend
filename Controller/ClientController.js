@@ -1161,3 +1161,27 @@ export const createComplaint = async (req, res) => {
         });
     }
 };
+
+
+export const SikayetetYorum = async (req, res) => {
+    try {
+        const { yorum_id, reason } = req.body;
+        const sikayet_eden_id = req.userId; 
+
+        if (!yorum_id || !reason) {
+            return res.status(400).json({ success: false, message: "Yorum ID ve sebep gerekli." });
+        }
+
+        const query = `
+            INSERT INTO yorum_sikayetleri (yorum_id, sikayet_eden_id, reason)
+            VALUES ($1, $2, $3)
+            RETURNING *;
+        `;
+        const result = await db.query(query, [yorum_id, sikayet_eden_id, reason]);
+
+        res.json({ success: true, message: "Yorum şikayet edildi.", data: result.rows[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Sunucu hatası." });
+    }
+};

@@ -1,5 +1,5 @@
 import express from 'express'
-import { AdminLogin, ApproveClient, DeleteClientAndBanDevice, deleteComplaint, GetAllClients, getComplaints } from '../Controller/AdminController.js'
+import { AdminLogin, ApproveClient, DeleteClientAndBanDevice, deleteComment, deleteComplaint, GetAllClients, getComplaints, GetSikayetYorum } from '../Controller/AdminController.js'
 import verifyToken from '../Middlewares/AuthMiddlewares.js'
 
 const router = express.Router()
@@ -18,4 +18,6 @@ router.get('/ilan', verifyToken, getComplaints);
 
 
 router.delete('/ilansil/:id', verifyToken, deleteComplaint);
+router.get('/reports', verifyToken, GetSikayetYorum);
+router.delete("/deleteyorum/:id",verifyToken, deleteComment);
 export default router
