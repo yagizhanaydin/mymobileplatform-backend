@@ -69,13 +69,24 @@ export const ClientRegister = async (req, res) => {
 
 export const ClientLogin = async (req, res) => {
   try {
-    const { client_name, password } = req.body;
+    const { client_name, password, device_id } = req.body;
+    console.log(`[LOGIN ATTEMPT] Kullanıcı: ${client_name}, DeviceID: ${device_id}`);
 
-    if (!client_name || !password) {
-      return res.status(400).json({ message: "Hiçbir alan boş olamaz" });
+    if (!client_name || !password || !device_id) {
+      console.log("[LOGIN ERROR] Alanlar boş");
+      return res.status(400).json({ message: "Alanlar boş olamaz" });
     }
 
-  
+    // Banned device kontrolü
+    const bannedResult = await db.query(
+      "SELECT * FROM banned_devices WHERE device_id=$1",
+      [device_id]
+    );
+    if (bannedResult.rows.length > 0) {
+      console.log(`[LOGIN BLOCKED] Yasaklı cihaz: ${device_id}`);
+      return res.status(403).json({ message: "Bu cihaz yasaklı" });
+    }
+
     let result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi=$1",
       [client_name]
@@ -83,7 +94,6 @@ export const ClientLogin = async (req, res) => {
 
     let role = "client";
 
-    
     if (result.rows.length === 0) {
       result = await db.query(
         "SELECT * FROM admins WHERE client_name=$1",
@@ -93,38 +103,32 @@ export const ClientLogin = async (req, res) => {
     }
 
     if (result.rows.length === 0) {
+      console.log(`[LOGIN ERROR] Kullanıcı bulunamadı: ${client_name}`);
       return res.status(400).json({ message: "Böyle bir kullanıcı bulunamadı" });
     }
 
     const user = result.rows[0];
-
-  
     let isMatch = false;
+
     try {
       isMatch = await bcrypt.compare(password, user.password);
-    } catch (e) {
-      console.warn("bcrypt ile kontrol edilemedi, düz metin denenecek");
+    } catch {
+      console.warn("bcrypt kontrol edilemedi, düz metin deneniyor");
     }
 
+    if (!isMatch) isMatch = password === user.password;
     if (!isMatch) {
-      isMatch = password === user.password;
-    }
-
-    if (!isMatch) {
+      console.log(`[LOGIN ERROR] Şifre yanlış: ${client_name}`);
       return res.status(400).json({ message: "Şifre yanlış" });
     }
 
-  
     const token = jwt.sign(
-      {
-        id: user.id,
-        client_name: role === "client" ? user.kullanici_adi : user.client_name,
-        role
-      },
+      { id: user.id, client_name: role === "client" ? user.kullanici_adi : user.client_name, role },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    console.log(`[LOGIN SUCCESS] Kullanıcı: ${client_name}, Role: ${role}, DeviceID: ${device_id}`);
 
     return res.status(200).json({
       message: "Giriş başarılı",
@@ -137,6 +141,7 @@ export const ClientLogin = async (req, res) => {
         role
       }
     });
+
   } catch (error) {
     console.error("ClientLogin error:", error);
     return res.status(500).json({ message: "Sunucu hatası" });

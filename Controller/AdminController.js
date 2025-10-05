@@ -90,7 +90,7 @@ export const GetAllClients = async (req, res) => {
       gender: user.gender,
       role: user.role,
       photoUrl: user.photo_base64 
-        ? `http://10.121.78.245:3000/uploads/${user.photo_base64}`
+        ? `http://10.147.226.245:3000/uploads/${user.photo_base64}`
         : null
     }));
 
@@ -144,7 +144,7 @@ export const ApproveClient = async (req, res) => {
 
     const clientId = req.params.id
 
-    // Kullanıcı bilgilerini al (fotoğraf yolu için)
+   
     const clientResult = await db.query(
       "SELECT photo_base64 FROM clients WHERE id=$1",
       [clientId]
@@ -156,10 +156,10 @@ export const ApproveClient = async (req, res) => {
 
     const photoFile = clientResult.rows[0].photo_base64
 
-    // Kullanıcıyı onayla
+   
     await db.query("UPDATE clients SET approved=true WHERE id=$1", [clientId])
 
-    // Fotoğrafı uploads klasöründen sil
+    
     if (photoFile) {
       const filePath = path.join(process.cwd(), "uploads", photoFile)
       if (fs.existsSync(filePath)) {
@@ -195,7 +195,7 @@ export const DeleteClientAndBanDevice = async (req, res) => {
     const clientId = req.params.id
     console.log("Silinecek clientId:", clientId)
 
-    // Kullanıcı bilgilerini al (device_id + fotoğraf)
+   
     const clientResult = await db.query(
       "SELECT device_id, photo_base64 FROM clients WHERE id=$1",
       [clientId]
@@ -210,14 +210,14 @@ export const DeleteClientAndBanDevice = async (req, res) => {
     const photoFile = clientResult.rows[0].photo_base64
     console.log("Kullanıcının device_id'si:", deviceId)
 
-    // Kullanıcıyı sil
+
     const deleteResult = await db.query(
       "DELETE FROM clients WHERE id=$1 RETURNING *",
       [clientId]
     )
     console.log("Silinen kullanıcı:", deleteResult.rows[0])
 
-    // Fotoğrafı uploads klasöründen sil
+    
     if (photoFile) {
       const filePath = path.join(process.cwd(), "uploads", photoFile)
       if (fs.existsSync(filePath)) {
@@ -226,7 +226,7 @@ export const DeleteClientAndBanDevice = async (req, res) => {
       }
     }
 
-    // Cihazı banla
+  
     if (deviceId) {
       await db.query(
         "INSERT INTO banned_devices(device_id) VALUES($1) ON CONFLICT DO NOTHING",
@@ -247,3 +247,70 @@ export const DeleteClientAndBanDevice = async (req, res) => {
   }
 }
 
+
+
+
+export const getComplaints = async (req, res) => {
+    try {
+        const complaintsResult = await db.query(`
+            SELECT 
+                comp.id,
+                comp.reason,
+                comp.reported_by,
+                comp.created_at,
+                i.id AS ilan_id,
+                i.city,
+                i.issue,
+                c.kullanici_adi AS ilan_sahibi
+            FROM complaints comp
+            JOIN ilanlar i ON comp.ilan_id = i.id
+            JOIN clients c ON i.client_id = c.id
+            ORDER BY comp.created_at DESC
+        `);
+
+        return res.status(200).json({
+            success: true,
+            data: complaintsResult.rows
+        });
+
+    } catch (error) {
+        console.error("Şikayetleri çekme hatası:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Sunucu hatası"
+        });
+    }
+};
+
+
+
+export const deleteComplaint = async (req, res) => {
+    try {
+        const complaintId = req.params.id;
+
+        const result = await db.query(
+            'DELETE FROM complaints WHERE id = $1 RETURNING *',
+            [complaintId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Şikayet bulunamadı!"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Şikayet silindi!",
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error("Şikayet silme hatası:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Sunucu hatası"
+        });
+    }
+};
