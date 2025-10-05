@@ -1097,3 +1097,62 @@ export const PutClient = async (req, res) => {
     return res.status(500).json({ success: false, message: "Sunucu hatası" })
   }
 }
+
+
+
+export const createComplaint = async (req, res) => {
+    try {
+        const userId = req.userId; // JWT'den gelen ID
+        const { ilan_id, reason } = req.body;
+
+        if (!ilan_id || !reason) {
+            return res.status(400).json({
+                success: false,
+                message: "İlan ID ve şikayet nedeni zorunludur!"
+            });
+        }
+
+       
+        const ilanResult = await db.query(
+            `
+            SELECT i.client_id, c.kullanici_adi
+            FROM ilanlar i
+            JOIN clients c ON i.client_id = c.id
+            WHERE i.id = $1
+            `,
+            [ilan_id]
+        );
+
+        if (ilanResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "İlan bulunamadı!"
+            });
+        }
+
+        const { client_id, kullanici_adi } = ilanResult.rows[0];
+
+        // 2️⃣ Şikayeti kaydet
+        const complaintResult = await db.query(
+            `
+            INSERT INTO complaints (ilan_id, client_id, kullanici_adi, reason, reported_by)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+            `,
+            [ilan_id, client_id, kullanici_adi, reason, userId]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "Şikayet başarıyla kaydedildi!",
+            data: complaintResult.rows[0]
+        });
+
+    } catch (error) {
+        console.error("Şikayet oluşturma hatası:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Sunucu hatası"
+        });
+    }
+};
