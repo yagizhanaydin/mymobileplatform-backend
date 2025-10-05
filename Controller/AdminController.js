@@ -249,9 +249,9 @@ export const DeleteClientAndBanDevice = async (req, res) => {
 
 
 
-
 export const getComplaints = async (req, res) => {
     try {
+        console.log("getComplaints çağrıldı"); // çağrı geldi mi kontrol
         const complaintsResult = await db.query(`
             SELECT 
                 comp.id,
@@ -267,6 +267,8 @@ export const getComplaints = async (req, res) => {
             JOIN clients c ON i.client_id = c.id
             ORDER BY comp.created_at DESC
         `);
+
+        console.log("DB’den gelen sonuç:", complaintsResult.rows);
 
         return res.status(200).json({
             success: true,
@@ -288,26 +290,35 @@ export const deleteComplaint = async (req, res) => {
     try {
         const complaintId = req.params.id;
 
-        const result = await db.query(
-            'DELETE FROM complaints WHERE id = $1 RETURNING *',
+        // 1️⃣ Önce şikayeti bul (ilan_id lazım olacak)
+        const complaintResult = await db.query(
+            'SELECT ilan_id FROM complaints WHERE id = $1',
             [complaintId]
         );
 
-        if (result.rows.length === 0) {
+        if (complaintResult.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Şikayet bulunamadı!"
             });
         }
 
+        const ilanId = complaintResult.rows[0].ilan_id;
+
+        // 2️⃣ İlanı sil → complaints otomatik silinecek
+        const deleteIlan = await db.query(
+            'DELETE FROM ilanlar WHERE id = $1 RETURNING *',
+            [ilanId]
+        );
+
         return res.status(200).json({
             success: true,
-            message: "Şikayet silindi!",
-            data: result.rows[0]
+            message: "İlan ve ilgili şikayet(ler) silindi!",
+            data: deleteIlan.rows[0]
         });
 
     } catch (error) {
-        console.error("Şikayet silme hatası:", error);
+        console.error("Şikayet/İlan silme hatası:", error);
         return res.status(500).json({
             success: false,
             message: "Sunucu hatası"

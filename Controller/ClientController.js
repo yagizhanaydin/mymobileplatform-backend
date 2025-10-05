@@ -486,9 +486,9 @@ export const getAllUsers = async (req, res) => {
       return res.status(401).json({ success: false, message: "Token yok" });
     }
 
-    // Token decode
+   
     const decoded = jwt.verify(token, JWT_SECRET);
-    const currentUserId = parseInt(decoded.id); // 🔥 parseInt ekledim
+    const currentUserId = parseInt(decoded.id); 
 
     console.log("getAllUsers request => currentUserId:", currentUserId, typeof currentUserId);
 
@@ -1107,7 +1107,7 @@ export const PutClient = async (req, res) => {
 
 export const createComplaint = async (req, res) => {
     try {
-        const userId = req.userId; // JWT'den gelen ID
+        const userId = req.userId; 
         const { ilan_id, reason } = req.body;
 
         if (!ilan_id || !reason) {
@@ -1137,7 +1137,7 @@ export const createComplaint = async (req, res) => {
 
         const { client_id, kullanici_adi } = ilanResult.rows[0];
 
-        // 2️⃣ Şikayeti kaydet
+      
         const complaintResult = await db.query(
             `
             INSERT INTO complaints (ilan_id, client_id, kullanici_adi, reason, reported_by)
