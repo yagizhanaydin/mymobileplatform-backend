@@ -4,6 +4,7 @@ import cors from 'cors';
 import clientRoutes from './Routes/ClientRoutes.js';
 import adminRoutes from './Routes/AdminRoutes.js';
 import chatRoutes from './Routes/ChatRoutes.js';
+import commentRoutes from './Routes/CommentRoutes.js'
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
@@ -104,6 +105,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/clients', clientRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/comments', commentRoutes)
 
 
 httpServer.listen(PORT, () => {
