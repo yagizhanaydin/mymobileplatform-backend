@@ -90,7 +90,7 @@ export const GetAllClients = async (req, res) => {
       gender: user.gender,
       role: user.role,
       photoUrl: user.photo_base64 
-        ? `http://10.147.226.245:3000/uploads/${user.photo_base64}`
+        ? `http://10.69.245.245:3000/uploads/${user.photo_base64}`
         : null
     }));
 
@@ -290,7 +290,7 @@ export const deleteComplaint = async (req, res) => {
     try {
         const complaintId = req.params.id;
 
-        // 1️⃣ Önce şikayeti bul (ilan_id lazım olacak)
+       
         const complaintResult = await db.query(
             'SELECT ilan_id FROM complaints WHERE id = $1',
             [complaintId]
@@ -305,7 +305,7 @@ export const deleteComplaint = async (req, res) => {
 
         const ilanId = complaintResult.rows[0].ilan_id;
 
-        // 2️⃣ İlanı sil → complaints otomatik silinecek
+      
         const deleteIlan = await db.query(
             'DELETE FROM ilanlar WHERE id = $1 RETURNING *',
             [ilanId]

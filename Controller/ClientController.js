@@ -14,7 +14,7 @@ export const ClientRegister = async (req, res) => {
     const { client_name, password, gender, androidId, securityQuestion, securityAnswer } = req.body;
     const file = req.file;
 
-    // Logla: gelen veriyi
+   
     console.log("ClientRegister input:", {
       client_name,
       gender,
@@ -77,7 +77,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(400).json({ message: "Alanlar boş olamaz" });
     }
 
-    // Banned device kontrolü
+   
     const bannedResult = await db.query(
       "SELECT * FROM banned_devices WHERE device_id=$1",
       [device_id]
@@ -302,73 +302,107 @@ export const IlanShow = async (req, res) => {
 };
 
 
+
+// 1. YORUM EKLEME
 export const AddYorum = async (req, res) => {
   try {
-    const { ilanId } = req.params;
+    const { ilanId } = req.params; 
     const { comment } = req.body;
-    const clientId = req.userId;
+    
+    // Senin diğer fonksiyonlarında kullandığın yapı: req.userId
+    const myUserId = req.userId; 
 
-    console.log("AddYorum çağrıldı:", { ilanId, comment, clientId });
+    console.log("AddYorum tetiklendi:", { ilanId, myUserId, comment });
 
-    if (!comment) {
-      console.log("Yorum boş geldi!");
-      return res.status(400).json({ success: false, message: "Yorum boş olamaz!" });
+    if (!myUserId) {
+        return res.status(401).json({ success: false, message: "Yetkisiz erişim!" });
     }
 
-  
-    const result = await db.query(
-      `INSERT INTO yorumlar (ilan_id, client_id, comment)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [ilanId, clientId, comment]
+    // DB Kaydı
+    const insertResult = await db.query(
+      `INSERT INTO yorumlar (ilan_id, client_id, comment) 
+       VALUES ($1, $2, $3) RETURNING *`,
+      [ilanId, myUserId, comment]
     );
 
-    console.log("Yorum eklendi:", result.rows[0]);
+    const newCommentId = insertResult.rows[0].id;
 
-    
-    const yorumId = result.rows[0].id;
-    const yorumFull = await db.query(
-      `SELECT y.id, y.ilan_id, y.client_id, c.kullanici_adi, c.gender, y.comment, y.created_at
+    // Android tarafında anında gözükmesi için detaylı çekiyoruz
+    const fullComment = await db.query(
+      `SELECT 
+        y.id, y.ilan_id, y.client_id, c.kullanici_adi, c.gender, y.comment, y.created_at,
+        TRUE AS "isMine" 
        FROM yorumlar y
        JOIN clients c ON y.client_id = c.id
-       WHERE y.id=$1`,
-      [yorumId]
+       WHERE y.id = $1`,
+      [newCommentId]
     );
 
-    console.log("Yorum detayları:", yorumFull.rows[0]);
-
-    res.status(201).json({ success: true, data: yorumFull.rows[0] });
+    res.status(201).json({ 
+      success: true, 
+      data: fullComment.rows[0] 
+    });
 
   } catch (error) {
-    console.error("AddYorum error:", error);
-    res.status(500).json({ success: false, message: "Sunucu hatası" });
+    console.error("AddYorum Hatası:", error.message);
+    res.status(500).json({ success: false, message: "Yorum kaydedilemedi." });
   }
-}
+};
 
-
+// 2. YORUMLARI GETİRME
 export const GetYorumlar = async (req, res) => {
   try {
     const { ilanId } = req.params;
-    console.log("GetYorumlar çağrıldı:", { ilanId });
+    const myUserId = req.userId; // verifyToken'dan gelen ID
+
+    console.log("GetYorumlar çağrıldı, İlan:", ilanId, "Kullanıcı:", myUserId);
 
     const result = await db.query(
-      `SELECT y.id, y.ilan_id, y.client_id, c.kullanici_adi, c.gender, y.comment, y.created_at
+      `SELECT 
+        y.id, 
+        y.ilan_id, 
+        y.client_id, 
+        c.kullanici_adi, 
+        c.gender, 
+        y.comment, 
+        y.created_at,
+        (y.client_id = $2) AS "isMine" 
        FROM yorumlar y
        JOIN clients c ON y.client_id = c.id
-       WHERE y.ilan_id=$1
+       WHERE y.ilan_id = $1
        ORDER BY y.created_at DESC`,
-      [ilanId]
+      [ilanId, myUserId || 0] // Kullanıcı login değilse 0 gönderiyoruz ki hata vermesin
     );
 
-    console.log("GetYorumlar sonucu:", result.rows);
-
     res.status(200).json({ success: true, data: result.rows });
-
   } catch (error) {
     console.error("GetYorumlar error:", error);
-    res.status(500).json({ success: false, message: "Sunucu hatası" });
+    res.status(500).json({ success: false, message: "Yorumlar getirilemedi." });
   }
-}
+};
+
+// 3. YORUM SİLME
+export const DeleteYorum = async (req, res) => {
+  try {
+    const { yorumId } = req.params;
+    const myUserId = req.userId;
+
+    const result = await db.query(
+      "DELETE FROM yorumlar WHERE id = $1 AND client_id = $2 RETURNING *",
+      [yorumId, myUserId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(403).json({ success: false, message: "Bu yorumu silme yetkiniz yok!" });
+    }
+
+    res.status(200).json({ success: true, message: "Yorum başarıyla silindi." });
+  } catch (error) {
+    console.error("DeleteYorum error:", error);
+    res.status(500).json({ success: false, message: "Silme işlemi başarısız." });
+  }
+};
+
 
 
 export const MyIlanlar = async (req, res) => {
@@ -1011,13 +1045,13 @@ export const GetBlockedUsers = async (req, res) => {
 export const DeleteClientAccount = async (req, res) => {
   try {
     const userId = parseInt(req.userId);
-    const { answer } = req.body; // 👈 güvenlik cevabı client'tan gelecek
+    const { answer } = req.body; 
 
     if (isNaN(userId)) {
       return res.status(400).json({ success: false, message: "Geçersiz id" });
     }
 
-    // Kullanıcının gerçek güvenlik cevabını çek
+    
     const checkResult = await db.query(
       "SELECT security_answer FROM clients WHERE id = $1",
       [userId]
@@ -1029,12 +1063,12 @@ export const DeleteClientAccount = async (req, res) => {
 
     const realAnswer = checkResult.rows[0].security_answer;
 
-    // Cevap kontrolü (case insensitive yapabilirsin)
+    
     if (realAnswer.toLowerCase() !== String(answer).toLowerCase()) {
       return res.status(401).json({ success: false, message: "Güvenlik cevabı yanlış!" });
     }
 
-    // Doğruysa hesabı sil
+    
     await db.query("DELETE FROM clients WHERE id = $1", [userId]);
 
     return res.json({ success: true, message: "Hesap silindi" });
@@ -1054,22 +1088,22 @@ export const PutClient = async (req, res) => {
     const { kullanici_adi, password, security_answer } = req.body
     const userId = req.userId 
 
-    // Zorunlu alan kontrolü
+    
     if (!kullanici_adi || !password || !security_answer) {
       return res.status(400).json({ success: false, message: "Kullanıcı adı, şifre ve güvenlik cevabı zorunlu" })
     }
 
-    // Kullanıcı adı uzunluğu kontrolü
+   
     if (kullanici_adi.length < 6 || kullanici_adi.length > 20) {
       return res.status(400).json({ success: false, message: "Kullanıcı adı 6-20 karakter olmalı" })
     }
 
-    // Yasaklı kelime kontrolü
+   
     if (containsBannedWord(kullanici_adi)) {
       return res.status(400).json({ success: false, message: "Bu kullanıcı adı yasaklı kelime içeriyor" })
     }
 
-    // Kullanıcı adı başka biri tarafından kullanılıyor mu?
+   
     const checkUser = await db.query(
       "SELECT id FROM clients WHERE kullanici_adi = $1 AND id != $2",
       [kullanici_adi, userId]
@@ -1078,7 +1112,7 @@ export const PutClient = async (req, res) => {
       return res.status(400).json({ success: false, message: "Kullanıcı adı zaten alınmış" })
     }
 
-    // Sadece güvenlik cevabı kontrolü
+    
     const userCheck = await db.query(
       "SELECT security_answer FROM clients WHERE id = $1",
       [userId]
@@ -1087,10 +1121,10 @@ export const PutClient = async (req, res) => {
       return res.status(403).json({ success: false, message: "Güvenlik cevabı yanlış" })
     }
 
-    // Şifreyi hashle
+    
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Güncelle
+  
     await db.query(
       "UPDATE clients SET kullanici_adi = $1, password = $2 WHERE id = $3",
       [kullanici_adi, hashedPassword, userId]

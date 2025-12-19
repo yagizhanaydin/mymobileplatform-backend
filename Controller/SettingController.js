@@ -5,7 +5,7 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Kullanıcı ayarlarını çek
+
 export const GetUserSettings = async (req, res) => {
     try {
         const authHeader = req.header("Authorization");
@@ -15,7 +15,7 @@ export const GetUserSettings = async (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const userId = decoded.id;
 
-        // Ayar satırı yoksa ekle ve çek
+     
         const query = `
             INSERT INTO user_settings (user_id, block_opposite_gender_follow)
             VALUES ($1, false)
@@ -45,7 +45,7 @@ export const GetUserSettings = async (req, res) => {
     }
 };
 
-// Kullanıcı ayarlarını güncelle
+
 export const UpdateUserSettings = async (req, res) => {
     try {
         const authHeader = req.header("Authorization");
@@ -57,7 +57,7 @@ export const UpdateUserSettings = async (req, res) => {
 
         const { blockOppositeGenderFollow } = req.body;
 
-        // Ayar satırı yoksa oluştur, varsa güncelle
+       
         const upsertQuery = `
             INSERT INTO user_settings (user_id, block_opposite_gender_follow)
             VALUES ($1, $2)

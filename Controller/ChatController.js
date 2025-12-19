@@ -91,7 +91,7 @@ export const getMessages = async (req, res) => {
     }
 };
 
-// Tüm konuşmaları al (son mesajlarla)
+
 export const getConversations = async (req, res) => {
     try {
         const userId = parseInt(req.userId);
@@ -133,7 +133,7 @@ export const getConversations = async (req, res) => {
     }
 };
 
-// Konuşmayı kendi tarafında sil
+
 export const deleteConversation = async (req, res) => {
     try {
         const userId = parseInt(req.userId);
