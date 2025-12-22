@@ -762,7 +762,7 @@ export const GetFriendsSayi = async (req, res) => {
         });
     }
 };
-
+/*
 export const DeleteClient = async (req, res) => {
     try {
         const { answer, userCode, deviceId } = req.body; 
@@ -795,7 +795,7 @@ export const DeleteClient = async (req, res) => {
         return res.status(500).json({ message: "Sunucu hatası" });
     }
 };
-
+*/
 export const GetFriendsList = async (req, res) => {
     try {
         const authHeader = req.header("Authorization");
@@ -1220,5 +1220,62 @@ export const SikayetetYorum = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: "Sunucu hatası." });
+    }
+};
+
+
+export const Deletefriends = async (req, res) => {
+    const startTime = Date.now();
+    try {
+        const friendId = req.params.friendId; 
+        // verifyToken middleware'inden gelen ID'yi alıyoruz
+        const myId = req.user ? req.user.id : req.userId; 
+
+        console.log("--------------------------------------------------");
+        console.log(`[LOG] ARKADAŞ SİLME İSTEĞİ BAŞLATILDI`);
+        console.log(`[LOG] İstek Yapan (Ben): ${myId}`);
+        console.log(`[LOG] Silinecek Arkadaş: ${friendId}`);
+
+        if (!myId || !friendId) {
+            console.error("[ERROR] Eksik ID tespiti!");
+            return res.status(400).json({ success: false, message: "Kullanıcı ID'leri eksik." });
+        }
+
+        const query = `
+            DELETE FROM friends
+            WHERE (sender_id = $1 AND receiver_id = $2) 
+               OR (sender_id = $2 AND receiver_id = $1)
+        `;
+
+        console.log(`[LOG] SQL Sorgusu Çalıştırılıyor...`);
+        const result = await db.query(query, [myId, friendId]);
+
+        const duration = Date.now() - startTime;
+
+        if (result.rowCount > 0) {
+            console.log(`[SUCCESS] Silme Başarılı! Silinen Satır Sayısı: ${result.rowCount}`);
+            console.log("--------------------------------------------------");
+
+            return res.status(200).json({ 
+                success: true, 
+                message: "Arkadaş başarıyla silindi.",
+                debug_info: { deletedCount: result.rowCount, time: duration }
+            });
+        } else {
+            console.warn(`[WARN] Kayıt bulunamadı. DB'de böyle bir arkadaşlık yok.`);
+            console.log("--------------------------------------------------");
+
+            return res.status(404).json({ 
+                success: false, 
+                message: "Silinecek arkadaşlık kaydı bulunamadı." 
+            });
+        }
+    } catch (err) {
+        console.error("##################################################");
+        console.error(`[FATAL ERROR] Kod Patladı: ${err.message}`);
+        console.error("##################################################");
+        
+        // Hata durumunda 'message' yerine 'err.message' kullanıyoruz
+        res.status(500).json({ success: false, message: err.message });
     }
 };
