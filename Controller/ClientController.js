@@ -845,7 +845,7 @@ export const ShowDangerLocations = async (req, res) => {
       return res.status(401).json({ success: false, message: "Token yok" });
     }
 
-    const token = authHeader.split(" ")[1]; // Bearer TOKEN
+    const token = authHeader.split(" ")[1]; 
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.id;
 
@@ -1084,58 +1084,62 @@ export const DeleteClientAccount = async (req, res) => {
 
 export const PutClient = async (req, res) => {
   try {
-    const { kullanici_adi, password, security_answer } = req.body
-    const userId = req.userId 
+   
+    const { kullanici_adi, password, security_answer, deviceId } = req.body;
+    const userId = req.userId; 
+
+    if (!kullanici_adi || !password || !security_answer || !deviceId) {
+      return res.status(400).json({ success: false, message: "Eksik bilgi gönderildi!" });
+    }
 
     
-    if (!kullanici_adi || !password || !security_answer) {
-      return res.status(400).json({ success: false, message: "Kullanıcı adı, şifre ve güvenlik cevabı zorunlu" })
+    const userResult = await db.query(
+      "SELECT security_answer, device_id FROM clients WHERE id = $1",
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+
+    const dbUser = userResult.rows[0];
+
+  
+    if (dbUser.device_id !== deviceId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Güvenlik İhlali! Bilgiler sadece kayıtlı cihazdan güncellenebilir." 
+      });
     }
 
    
-    if (kullanici_adi.length < 6 || kullanici_adi.length > 20) {
-      return res.status(400).json({ success: false, message: "Kullanıcı adı 6-20 karakter olmalı" })
+    if (dbUser.security_answer.toLowerCase() !== security_answer.toLowerCase()) {
+      return res.status(403).json({ success: false, message: "Güvenlik cevabı yanlış!" });
     }
 
-   
-    if (containsBannedWord(kullanici_adi)) {
-      return res.status(400).json({ success: false, message: "Bu kullanıcı adı yasaklı kelime içeriyor" })
-    }
-
-   
+  
     const checkUser = await db.query(
       "SELECT id FROM clients WHERE kullanici_adi = $1 AND id != $2",
       [kullanici_adi, userId]
-    )
+    );
     if (checkUser.rows.length > 0) {
-      return res.status(400).json({ success: false, message: "Kullanıcı adı zaten alınmış" })
+      return res.status(400).json({ success: false, message: "Bu kullanıcı adı zaten başka birine ait" });
     }
-
-    
-    const userCheck = await db.query(
-      "SELECT security_answer FROM clients WHERE id = $1",
-      [userId]
-    )
-    if (userCheck.rows.length === 0 || userCheck.rows[0].security_answer !== security_answer) {
-      return res.status(403).json({ success: false, message: "Güvenlik cevabı yanlış" })
-    }
-
-    
-    const hashedPassword = await bcrypt.hash(password, 10)
 
   
+    const hashedPassword = await bcrypt.hash(password, 10);
     await db.query(
       "UPDATE clients SET kullanici_adi = $1, password = $2 WHERE id = $3",
       [kullanici_adi, hashedPassword, userId]
-    )
+    );
 
-    return res.json({ success: true, message: "Hesap bilgileri güncellendi ✅" })
+    return res.json({ success: true, message: "Hesap bilgileriniz başarıyla güncellendi ✅" });
+
   } catch (err) {
-    console.error("PutClient error:", err)
-    return res.status(500).json({ success: false, message: "Sunucu hatası" })
+    console.error("PutClient Error:", err);
+    return res.status(500).json({ success: false, message: "Sunucu hatası oluştu" });
   }
-}
-
+};
 
 
 export const createComplaint = async (req, res) => {
