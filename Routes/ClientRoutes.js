@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, createComplaint, DeleteClientAccount, Deletefriends, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, PutClient, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, SikayetetYorum, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
+import { AddFriends, AddYorum, BlockUser, ClientLogin, ClientRegister, createComplaint, DeleteClientAccount, Deletefriends, deleteIlan, getAllUsers,  GetBlockedUsers,  GetDataClient, GetFriendsList, GetFriendsSayi, GetYorumlar, IlanKayit, IlanShow, MyIlanlar, PostLocation, PutClient, ResetPasswordWithDevice, ResponseFriendRequest, ShowDangerLocations, ShowFriendRequest, SikayetetYorum, UnblockUser, UserNameAndById,  } from '../Controller/ClientController.js'
 import path from 'path';
 import verifyToken from '../Middlewares/AuthMiddlewares.js';
 import { GetUserSettings, UpdateUserSettings } from '../Controller/SettingController.js';
@@ -36,7 +36,7 @@ router.post('/add-friend',verifyToken, AddFriends);
 router.get('/show-friendrequest', verifyToken, ShowFriendRequest);
 router.post('/respond-friendrequest',verifyToken,ResponseFriendRequest)
 router.get('/friendsayi',verifyToken,GetFriendsSayi)
-
+router.post("/reset-password", ResetPasswordWithDevice);
 router.get("/friends", verifyToken,GetFriendsList);
 router.get("/locations/danger", verifyToken,ShowDangerLocations);
 router.get("/username/:id", verifyToken,UserNameAndById);

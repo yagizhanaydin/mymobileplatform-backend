@@ -1228,7 +1228,7 @@ export const Deletefriends = async (req, res) => {
     const startTime = Date.now();
     try {
         const friendId = req.params.friendId; 
-        // verifyToken middleware'inden gelen ID'yi alıyoruz
+       
         const myId = req.user ? req.user.id : req.userId; 
 
         console.log("--------------------------------------------------");
@@ -1277,5 +1277,51 @@ export const Deletefriends = async (req, res) => {
         
         // Hata durumunda 'message' yerine 'err.message' kullanıyoruz
         res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+export const ResetPasswordWithDevice = async (req, res) => {
+    const { client_name, device_id, new_password } = req.body;
+
+    try {
+        // 1. ADIM: Tablo adını 'clients' ve sütun adını 'kullanici_adi' yaptık (Fotoğrafa göre)
+        const userQuery = await db.query("SELECT * FROM clients WHERE kullanici_adi = $1", [client_name]);
+        
+        if (userQuery.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Kullanıcı adı bulunamadı!" 
+            });
+        }
+
+        const user = userQuery.rows[0];
+
+        // 2. ADIM: Cihaz ID kontrolü (Veritabanındaki 'device_id' sütunuyla karşılaştırır)
+        if (user.device_id !== device_id) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Cihaz kimliği doğrulanamadı! Bu işlem sadece kayıtlı cihazdan yapılabilir." 
+            });
+        }
+
+        // 3. ADIM: Güvenlik için şifreyi hash'liyoruz
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(new_password, saltRounds);
+
+        // 4. ADIM: Şifreyi güncelle (Tablo adı: clients)
+        // Fotoğrafta id sütunu görünüyor, o yüzden 'id' üzerinden güncelliyoruz
+        await db.query("UPDATE clients SET password = $1 WHERE id = $2", [hashedPassword, user.id]);
+
+        return res.status(200).json({ 
+            success: true, 
+            message: "Kimlik doğrulandı. Şifreniz başarıyla güncellendi." 
+        });
+
+    } catch (err) {
+        console.error("Şifre Sıfırlama Hatası:", err);
+        return res.status(500).json({ 
+            success: false, 
+            message: "Sunucu hatası! Lütfen teknik ekiple iletişime geçin." 
+        });
     }
 };
