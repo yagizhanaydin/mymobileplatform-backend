@@ -87,7 +87,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(403).json({ message: "Bu cihaz yasaklı" });
     }
 
-    // Kullanıcıyı bulma (Client veya Admin)
+   
     let result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi=$1",
       [client_name]
@@ -111,7 +111,7 @@ export const ClientLogin = async (req, res) => {
     const user = result.rows[0];
     let isMatch = false;
 
-    // Şifre kontrolü (Bcrypt veya Düz Metin)
+   
     try {
       isMatch = await bcrypt.compare(password, user.password);
     } catch {
@@ -124,7 +124,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(400).json({ message: "Şifre yanlış" });
     }
 
-    // Token oluşturma
+    
     const token = jwt.sign(
       { id: user.id, client_name: role === "client" ? user.kullanici_adi : user.client_name, role },
       JWT_SECRET,
@@ -386,7 +386,7 @@ export const GetYorumlar = async (req, res) => {
   }
 };
 
-// 3. YORUM SİLME
+
 export const DeleteYorum = async (req, res) => {
   try {
     const { yorumId } = req.params;
@@ -763,44 +763,38 @@ export const GetFriendsSayi = async (req, res) => {
     }
 };
 
-
-
 export const DeleteClient = async (req, res) => {
     try {
-        const authHeader = req.header("Authorization");
-        if (!authHeader) return res.status(401).json({ success: false, message: "Token yok" });
+        const { answer, userCode, deviceId } = req.body; 
 
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const userId = decoded.id;
+        const userResult = await db.query("SELECT security_answer, device_id FROM users WHERE id = $1", [userId]);
+        const user = userResult.rows[0];
 
-        const { friendId } = req.params; 
-        if (!friendId) {
-            return res.status(400).json({ success: false, message: "Eksik friendId" });
+    
+        if (user.device_id !== userCode) {
+            return res.status(403).json({ message: "Girdiğiniz güvenlik kodu hatalı!" });
         }
 
-        const deleteQuery = `
-            DELETE FROM friends
-            WHERE (sender_id = $1 AND receiver_id = $2)
-               OR (sender_id = $2 AND receiver_id = $1)
-        `;
-
-        const result = await db.query(deleteQuery, [userId, friendId]);
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ success: false, message: "Arkadaş bulunamadı" });
+     
+        if (user.device_id !== deviceId) {
+            return res.status(403).json({ 
+                message: "Güvenlik İhlali! Bu işlem sadece hesabın kayıtlı olduğu telefondan yapılabilir." 
+            });
         }
 
-        return res.status(200).json({ success: true, message: "Arkadaş silindi" });
+      
+        if (user.security_answer !== answer) {
+            return res.status(403).json({ message: "Güvenlik sorusu cevabı yanlış!" });
+        }
+
+     
+        await db.query("DELETE FROM users WHERE id = $1", [userId]);
+        return res.status(200).json({ success: true, message: "Hesap başarıyla silindi." });
 
     } catch (error) {
-        console.error("DeleteClient error:", error);
-        return res.status(500).json({ success: false, message: "Sunucu hatası", error: error.message });
+        return res.status(500).json({ message: "Sunucu hatası" });
     }
 };
-
-
-
 
 export const GetFriendsList = async (req, res) => {
     try {
