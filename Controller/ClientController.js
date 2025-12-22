@@ -77,7 +77,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(400).json({ message: "Alanlar boş olamaz" });
     }
 
-   
+    // Yasaklı cihaz kontrolü
     const bannedResult = await db.query(
       "SELECT * FROM banned_devices WHERE device_id=$1",
       [device_id]
@@ -87,6 +87,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(403).json({ message: "Bu cihaz yasaklı" });
     }
 
+    // Kullanıcıyı bulma (Client veya Admin)
     let result = await db.query(
       "SELECT * FROM clients WHERE kullanici_adi=$1",
       [client_name]
@@ -110,6 +111,7 @@ export const ClientLogin = async (req, res) => {
     const user = result.rows[0];
     let isMatch = false;
 
+    // Şifre kontrolü (Bcrypt veya Düz Metin)
     try {
       isMatch = await bcrypt.compare(password, user.password);
     } catch {
@@ -122,6 +124,7 @@ export const ClientLogin = async (req, res) => {
       return res.status(400).json({ message: "Şifre yanlış" });
     }
 
+    // Token oluşturma
     const token = jwt.sign(
       { id: user.id, client_name: role === "client" ? user.kullanici_adi : user.client_name, role },
       JWT_SECRET,
@@ -130,9 +133,11 @@ export const ClientLogin = async (req, res) => {
 
     console.log(`[LOGIN SUCCESS] Kullanıcı: ${client_name}, Role: ${role}, DeviceID: ${device_id}`);
 
+    // YANIT KISMI: Android tarafının beklediği device_id bilgisini ekledik
     return res.status(200).json({
       message: "Giriş başarılı",
       token,
+      device_id: device_id, // Android tarafı bu değeri alıp "gösterildi mi?" kontrolü yapacak
       user: {
         id: user.id,
         client_name: role === "client" ? user.kullanici_adi : user.client_name,

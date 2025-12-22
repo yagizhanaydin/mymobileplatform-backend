@@ -10,8 +10,8 @@ const JWT_SECRET = process.env.JWT_SECRET
 
 
 export const AdminLogin = async (req, res) => {
-  console.log("🔵 AdminLogin çağrıldı");
-  console.log("📦 Request body:", req.body);
+  console.log(" AdminLogin çağrıldı");
+  console.log(" Request body:", req.body);
   
   const { client_name, password } = req.body;
 
@@ -40,7 +40,7 @@ export const AdminLogin = async (req, res) => {
     }
 
     const user = result.rows[0];
-    console.log("✅ Kullanıcı bulundu:", user);
+    console.log(" Kullanıcı bulundu:", user);
 
  
     const token = jwt.sign(
