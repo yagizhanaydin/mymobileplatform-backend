@@ -1304,12 +1304,11 @@ export const ResetPasswordWithDevice = async (req, res) => {
             });
         }
 
-        // 3. ADIM: Güvenlik için şifreyi hash'liyoruz
+       
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(new_password, saltRounds);
 
-        // 4. ADIM: Şifreyi güncelle (Tablo adı: clients)
-        // Fotoğrafta id sütunu görünüyor, o yüzden 'id' üzerinden güncelliyoruz
+        
         await db.query("UPDATE clients SET password = $1 WHERE id = $2", [hashedPassword, user.id]);
 
         return res.status(200).json({ 
